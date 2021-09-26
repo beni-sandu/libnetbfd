@@ -56,9 +56,9 @@ struct bfd_ctrl_packet {
     uint32_t req_min_echo_rx_interval;          /* Required min echo RX interval, in microseconds (RFC5880: section 6.8.9 for details) */
 } __attribute__((__packed__));
 
-void bfd_build_packet(uint8_t diag, uint8_t state, uint8_t detect_mult, uint8_t length,
-                uint32_t my_discr, uint32_t your_discr, uint32_t req_min_tx_interval,
-                uint32_t req_min_rx_interval, struct bfd_ctrl_packet *packet) {
+void bfd_build_packet(uint8_t diag, uint8_t state, uint8_t detect_mult, uint32_t my_discr,
+                uint32_t your_discr, uint32_t req_min_tx_interval, uint32_t req_min_rx_interval,
+                struct bfd_ctrl_packet *packet) {
 
     /* Protocol version, always 1 */
     packet->byte1.version = 0x20;
