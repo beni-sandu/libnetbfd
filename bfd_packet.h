@@ -51,13 +51,13 @@ struct bfd_ctrl_packet {
     uint8_t length;                             /* Length of BFD control packet in bytes */
     uint32_t my_discr;                          /* My discriminator, unique per session value */
     uint32_t your_discr;                        /* Your discriminator, received from corresponding remote system */
-    uint32_t req_min_tx_interval;               /* Required min TX interval, in microseconds (RFC5880: section 6.8.2 for details) */
+    uint32_t des_min_tx_interval;               /* Desired min TX interval, in microseconds (RFC5880: section 6.8.2 for details) */
     uint32_t req_min_rx_interval;               /* Required min RX interval, in microseconds (RFC5880: section 6.8.2 for details) */
     uint32_t req_min_echo_rx_interval;          /* Required min echo RX interval, in microseconds (RFC5880: section 6.8.9 for details) */
 } __attribute__((__packed__));
 
 void bfd_build_packet(uint8_t diag, uint8_t state, uint8_t detect_mult, uint32_t my_discr,
-                uint32_t your_discr, uint32_t req_min_tx_interval, uint32_t req_min_rx_interval,
+                uint32_t your_discr, uint32_t des_min_tx_interval, uint32_t req_min_rx_interval,
                 struct bfd_ctrl_packet *packet) {
 
     /* Protocol version, always 1 */
@@ -91,10 +91,10 @@ void bfd_build_packet(uint8_t diag, uint8_t state, uint8_t detect_mult, uint32_t
     packet->your_discr = htonl(your_discr);
 
     /* 
-     * Required min TX interval: minimum interval, in microseconds, that the local system would 
+     * Desired min TX interval: minimum interval, in microseconds, that the local system would 
      * like to use when transmitting BFD Control packets,less any jitter applied (see section 6.8.2).
      */
-    packet->req_min_tx_interval = htonl(req_min_tx_interval);
+    packet->des_min_tx_interval = htonl(des_min_tx_interval);
 
     /*
      * Required min RX interval: minimum interval, in microseconds, between received BFD Control packets 
