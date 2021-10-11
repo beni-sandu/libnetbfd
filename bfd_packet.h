@@ -56,8 +56,8 @@ struct bfd_ctrl_packet {
     uint32_t req_min_echo_rx_interval;          /* Required min echo RX interval, in microseconds (RFC5880: section 6.8.9 for details) */
 } __attribute__((__packed__));
 
-void bfd_build_packet(enum bfd_diag diag, enum bfd_state state, uint8_t detect_mult, uint32_t my_discr,
-                uint32_t your_discr, uint32_t des_min_tx_interval, uint32_t req_min_rx_interval,
+void bfd_build_packet(enum bfd_diag diag, enum bfd_state state, bool poll, bool final, uint8_t detect_mult,
+                uint32_t my_discr, uint32_t your_discr, uint32_t des_min_tx_interval, uint32_t req_min_rx_interval,
                 struct bfd_ctrl_packet *packet) {
 
     /* Protocol version, always 1 */
@@ -69,8 +69,14 @@ void bfd_build_packet(enum bfd_diag diag, enum bfd_state state, uint8_t detect_m
     /* Clear second byte, since most flags are disabled */
     packet->byte2.state = 0;
 
-    /* Only set BFD session state */
+    /* Set BFD session state */
     packet->byte2.state = (state << 6) & 0xC0;
+
+    /* Set Poll flag */
+    packet->byte2.poll |= (poll << 5) & 0x20;
+
+    /* Set Final flag */
+    packet->byte2.final |= (final << 4) & 0x10;
 
     /* 
      * Detection time multiplier: The negotiated transmit interval, multiplied by this value,
