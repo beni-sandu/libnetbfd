@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <arpa/inet.h>
 #include <net/if.h>
 #include <ifaddrs.h>
@@ -20,11 +21,6 @@ int search_device_by_ip(char *ip, bool is_ipv6, char *device) {
     struct sockaddr_in *sav4;
     struct sockaddr_in6 *sav6;
     char ip_buf[32];
-
-    if (ip == NULL) {
-        fprintf(stderr, "%s: invalid IP address.\n", __func__);
-        return EXIT_FAILURE;
-    }
     
     /* Get a list of network interfaces on the local system */
     if (getifaddrs(&addrs) == -1) {
