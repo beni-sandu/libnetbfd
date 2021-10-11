@@ -27,7 +27,7 @@ enum bfd_state {
     BFD_STATE_ADMIN_DOWN                = 0,
     BFD_STATE_DOWN                      = 1,
     BFD_STATE_INIT                      = 2,
-    BDF_STATE_UP                        = 3
+    BFD_STATE_UP                        = 3
 };
 
 /* Parameters for a new BFD session */
