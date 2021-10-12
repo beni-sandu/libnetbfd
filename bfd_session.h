@@ -3,7 +3,6 @@
 
 #include <stdbool.h>
 
-
 /* RFC5881 (https://datatracker.ietf.org/doc/html/rfc5881) specifies the ports that MUST be used */
 #define BFD_CTRL_PORT   3784
 
@@ -39,7 +38,7 @@ struct bfd_session_params {
     uint32_t req_min_rx_interval;           /* Required min RX interval for current session, BFD specific */
     uint32_t detect_mult;                   /* Detection multiplier for current session, BFD specific */
     void (*callback)(void);                 /* Callback for different state changes? */
-    struct bfd_session *current;            /* Pointer to current BFD session */
+    struct bfd_session *current_session;    /* Pointer to current BFD session */
 };
 
 /* 
@@ -47,8 +46,8 @@ struct bfd_session_params {
  * one with all the parameters, probably better to encapsulate it separately for the moment.
  */ 
 struct bfd_session {
-    enum bfd_state local;
-    enum bfd_state remote;
+    enum bfd_state local_state;
+    enum bfd_state remote_state;
     uint32_t local_discr;
     uint32_t remote_discr;
     enum bfd_diag local_diag;
@@ -56,5 +55,12 @@ struct bfd_session {
     uint32_t req_min_rx_interval;
     uint32_t remote_min_tx_interval;
 };
+
+/* Add a typedef for a BFD session ID */
+typedef unsigned long int bfd_session_id;
+
+/* Function prototypes */
+bfd_session_id bfd_session_start(struct bfd_session_params *params);
+void bfd_session_stop(bfd_session_id session_id);
 
 #endif //BFD_SESSION_H_
