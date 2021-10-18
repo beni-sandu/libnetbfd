@@ -5,6 +5,13 @@
 #include <ifaddrs.h>
 #include <string.h>
 #include <stdbool.h>
+#include <signal.h>
+#include <time.h>
+#include <libnet.h>
+
+#include "libbfd.h"
+#include "bfd_packet.h"
+#include "bfd_session.h"
 
 
 /* 
@@ -57,4 +64,33 @@ int search_device_by_ip(char *ip, bool is_ipv6, char *device) {
         freeifaddrs(addrs);
 
     return EXIT_FAILURE;
+}
+
+/* Start per thread timer */
+int bfd_start_timer(struct bfd_timer *timer_data, struct itimerspec *ts) {
+
+    if (timer_settime(timer_data->timer_id, 0, ts, 0) == -1) {
+        perror("timer settime");
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *timer_data) {
+
+    /* Update timer interval */
+    ts->it_interval.tv_sec = (interval_us > 999999) ? (interval_us / 1000000) : 0;
+    ts->it_interval.tv_nsec = (interval_us > 999999) ? (interval_us % 1000000 * 1000000)
+                                : (interval_us * 1000);
+    ts->it_value.tv_sec = (interval_us > 999999) ? (interval_us / 1000000) : 0;
+    ts->it_value.tv_nsec = (interval_us > 999999) ? (interval_us % 1000000 * 1000000)
+                                : (interval_us * 1000);
+    
+    if (timer_settime(timer_data->timer_id, 0, ts, 0) == -1) {
+        perror("timer settime");
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
 }

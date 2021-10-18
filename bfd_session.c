@@ -3,8 +3,15 @@
 #include <stdlib.h>
 #include <libnet.h>
 #include <pcap.h>
+#include <signal.h>
+#include <time.h>
+
 #include "bfd_packet.h"
+#include "bfd_session.h"
 #include "libbfd.h"
+
+/* Forward declarations */
+void timeout_handler(union sigval sv);
 
 /* Entry point of a new BFD session */
 void *bfd_session_run(void *args) {
@@ -19,6 +26,10 @@ void *bfd_session_run(void *args) {
     struct bfd_ctrl_packet pkt;                 /* BFD control packet */
     libnet_ptag_t udp_tag = 0, ip_tag = 0;      /* libnet tags */
     struct libnet_stats ls;                     /* libnet stats */
+
+    struct bfd_timer btimer;
+    struct sigevent sev;
+    struct itimerspec ts;
     int c;
 
     /* Useful pointers */
@@ -26,6 +37,7 @@ void *bfd_session_run(void *args) {
     struct bfd_session new_session;
     curr_params->current_session = &new_session;
     struct bfd_session *curr_session = curr_params->current_session;
+    btimer.sess_params = curr_params;
 
     /* Init packet injection library */
     l = libnet_init(
@@ -117,28 +129,61 @@ void *bfd_session_run(void *args) {
         exit(EXIT_FAILURE);
     }
 
-    /* Send 3 identical BFD packets on wire */
-    for (int i = 0; i < 3; i++) {
-        
-        fprintf(stdout, "Trying to send %d bytes packet\n", libnet_getpacket_size(l));
-        c = libnet_write(l);
+    /* Initial timer configuration, we start sending packets at desired min TX interval (provided in us) */
+    sev.sigev_notify = SIGEV_THREAD;                        /* Notify via thread */
+    sev.sigev_notify_function = &timeout_handler;           /* Handler function */
+    sev.sigev_notify_attributes = NULL;                     /* Could be pointer to pthread_attr_t structure */
+    sev.sigev_value.sival_ptr = &btimer;                    /* Pointer passed to handler */
 
-        if (c == -1) {
-            fprintf(stderr, "Write error %s\n", libnet_geterror(l));
-            libnet_destroy(l);
-            exit(EXIT_FAILURE);
-        } else {
-            fprintf(stdout, "Wrote UDP packet on wire, size %d\n", c);
-        }
+    /* Configure interval */
+    ts.it_interval.tv_sec = (curr_params->des_min_tx_interval > 999999) ? (curr_params->des_min_tx_interval / 1000000) : 0;
+    ts.it_interval.tv_nsec = (curr_params->des_min_tx_interval > 999999) ? (curr_params->des_min_tx_interval % 1000000 * 1000000)
+                                : (curr_params->des_min_tx_interval * 1000);
+    ts.it_value.tv_sec = (curr_params->des_min_tx_interval > 999999) ? (curr_params->des_min_tx_interval / 1000000) : 0;
+    ts.it_value.tv_nsec = (curr_params->des_min_tx_interval > 999999) ? (curr_params->des_min_tx_interval % 1000000 * 1000000)
+                                : (curr_params->des_min_tx_interval * 1000);
+
+    /* Create timer */
+    if (timer_create(CLOCK_REALTIME, &sev, &btimer.timer_id) == -1) {
+        perror("timer_create");
+        exit(EXIT_FAILURE);
     }
 
-    /* Print stats */
-    libnet_stats(l, &ls);
-    fprintf(stdout, "Packets sent:          %ld\n"
-                    "Packet errors:         %ld\n"
-                    "Total bytes written:   %ld\n",
-                    ls.packets_sent, ls.packet_errors, ls.bytes_written);
+    /* Start timer */
+    if (bfd_start_timer(&btimer, &ts) == -1) {
+        fprintf(stderr, "bfd_start_timer error\n");
+        exit(EXIT_FAILURE);
+    }
 
+    int packets_sent = 1;
+    btimer.send_next_pkt = 1;
+
+    /* Send 10 BFD packets at 1s intervals */
+    while (packets_sent < 10) {
+
+        if (btimer.send_next_pkt == 1) {
+            if (packets_sent == 5) {
+                pr_debug("Updating TX interval to 3s\n");
+                bfd_build_packet(curr_session->local_diag, curr_session->local_state, false, false, curr_params->detect_mult,
+                curr_session->local_discr, curr_session->remote_discr, 3000000, curr_session->req_min_rx_interval, &pkt);
+                bfd_build_udp(&pkt, &udp_tag, l);
+                bfd_update_timer(3000000, &ts, &btimer);
+            }
+            /* Send BFD packet on wire */
+            c = libnet_write(l);
+
+            if (c == -1) {
+                fprintf(stderr, "Write error %s\n", libnet_geterror(l));
+                libnet_destroy(l);
+                exit(EXIT_FAILURE);
+            } 
+            else {
+                fprintf(stdout, "Wrote UDP packet on wire, size %d, packets_sent = %d\n", c, packets_sent);
+                btimer.send_next_pkt = 0;
+                packets_sent++;
+            }
+        }
+    }
 
     libnet_destroy(l);
 
@@ -171,4 +216,11 @@ void bfd_session_stop(bfd_session_id session_id) {
         pr_debug("Stopping BFD session: %ld\n", session_id);
         pthread_cancel(session_id);
     }
+}
+
+void timeout_handler(union sigval sv) {
+
+    struct bfd_timer *timer_data = sv.sival_ptr;
+
+    timer_data->send_next_pkt = 1;
 }
