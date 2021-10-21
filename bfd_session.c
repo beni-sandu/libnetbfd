@@ -113,7 +113,7 @@ void *bfd_session_run(void *args) {
         0,                                                  /* TOS */
         0,                                                  /* IP ID */
         0,                                                  /* IP fragmentation */
-        64,                                                 /* TTL */
+        255,                                                /* TTL */
         IPPROTO_UDP,                                        /* Upper layer protocol */
         0,                                                  /* Checksum */
         src_ip,                                             /* Source IP address */
