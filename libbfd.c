@@ -80,10 +80,10 @@ int bfd_start_tx_timer(struct bfd_timer *timer_data, struct itimerspec *ts) {
 int bfd_update_tx_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *timer_data) {
 
     /* Update timer interval */
-    ts.it_interval.tv_sec = curr_params->des_min_tx_interval / 1000000;
-    ts.it_interval.tv_nsec = curr_params->des_min_tx_interval % 1000000 * 1000;
-    ts.it_value.tv_sec = curr_params->des_min_tx_interval / 1000000;
-    ts.it_value.tv_nsec = curr_params->des_min_tx_interval % 1000000 * 1000;
+    ts->it_interval.tv_sec = timer_data->sess_params->des_min_tx_interval / 1000000;
+    ts->it_interval.tv_nsec = timer_data->sess_params->des_min_tx_interval % 1000000 * 1000;
+    ts->it_value.tv_sec = timer_data->sess_params->des_min_tx_interval / 1000000;
+    ts->it_value.tv_nsec = timer_data->sess_params->des_min_tx_interval % 1000000 * 1000;
     
     if (timer_settime(timer_data->timer_id, 0, ts, 0) == -1) {
         perror("timer settime");

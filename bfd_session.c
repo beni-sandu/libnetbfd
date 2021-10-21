@@ -78,7 +78,7 @@ void *bfd_session_run(void *args) {
     curr_session->local_discr = (uint32_t)(random());
     curr_session->local_state = BFD_STATE_DOWN;
     curr_session->remote_discr = 0;
-    curr_session->remote_min_tx_interval = 0;
+    curr_session->remote_min_rx_interval = 0;
     curr_session->remote_state = BFD_STATE_DOWN;
     curr_session->req_min_rx_interval = curr_params->req_min_rx_interval;
 
