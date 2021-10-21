@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <libnet.h>
-#include <pcap.h>
 #include <signal.h>
 #include <time.h>
 
@@ -18,8 +17,6 @@ void *bfd_session_run(void *args) {
 
     libnet_t *l;                                /* libnet context */
     char libnet_errbuf[LIBNET_ERRBUF_SIZE];     /* libnet error buffer */
-    pcap_t *pcap_handle;                        /* pcap handle */
-    char pcap_errbuf[PCAP_ERRBUF_SIZE];         /* pcap error buffer */
     uint32_t src_ip;                            /* Local IP in binary form */
     uint32_t dst_ip;                            /* Remote IP in binary form */
     char if_name[32];                           /* Local interface used on capturing */

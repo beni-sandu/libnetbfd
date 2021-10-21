@@ -1,4 +1,3 @@
-#include <pcap.h>
 #include <libnet.h>
 
 #include "bfd_packet.h"
@@ -15,7 +14,6 @@
 struct bfd_timer {
     timer_t timer_id;                                       /* POSIX interval timer id */
     bool send_next_pkt;                                     /* Flag to control packet transaction */
-    pcap_t *pcap_handle;                                    /* pcap handle to breakloop if needed */
     struct bfd_session_params *sess_params;                 /* pointer to current BFD session parameters if needed */
 };
 

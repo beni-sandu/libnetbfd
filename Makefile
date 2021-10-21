@@ -1,7 +1,7 @@
 STRICT_COMPILE = 0
 
 CFLAGS = -Wall
-LDFLAGS = -L$(shell pwd) -lbfd -lpthread -lrt -lpcap -lcap -lnet
+LDFLAGS = -L$(shell pwd) -lbfd -lpthread -lrt -lcap -lnet
 
 ifeq ($(STRICT_COMPILE),1)
 CFLAGS += -O2 -W -Werror -Wstrict-prototypes -Wmissing-prototypes
