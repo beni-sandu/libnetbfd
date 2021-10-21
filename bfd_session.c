@@ -76,7 +76,7 @@ void *bfd_session_run(void *args) {
     srandom((uint64_t)curr_params);
 
     /* Configure initial values for the new BFD session */
-    curr_session->des_min_tx_interval = curr_params->des_min_tx_interval;
+    curr_session->des_min_tx_interval = 1000000;
     curr_session->local_diag = BFD_DIAG_NODIAG;
     curr_session->local_discr = (uint32_t)(random());
     curr_session->local_state = BFD_STATE_DOWN;
