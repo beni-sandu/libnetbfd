@@ -133,12 +133,10 @@ void *bfd_session_run(void *args) {
     sev.sigev_value.sival_ptr = &btimer;                    /* Pointer passed to handler */
 
     /* Configure interval */
-    ts.it_interval.tv_sec = (curr_params->des_min_tx_interval > 999999) ? (curr_params->des_min_tx_interval / 1000000) : 0;
-    ts.it_interval.tv_nsec = (curr_params->des_min_tx_interval > 999999) ? (curr_params->des_min_tx_interval % 1000000 * 1000000)
-                                : (curr_params->des_min_tx_interval * 1000);
-    ts.it_value.tv_sec = (curr_params->des_min_tx_interval > 999999) ? (curr_params->des_min_tx_interval / 1000000) : 0;
-    ts.it_value.tv_nsec = (curr_params->des_min_tx_interval > 999999) ? (curr_params->des_min_tx_interval % 1000000 * 1000000)
-                                : (curr_params->des_min_tx_interval * 1000);
+    ts.it_interval.tv_sec = curr_params->des_min_tx_interval / 1000000;
+    ts.it_interval.tv_nsec = curr_params->des_min_tx_interval % 1000000 * 1000;
+    ts.it_value.tv_sec = curr_params->des_min_tx_interval / 1000000;
+    ts.it_value.tv_nsec = curr_params->des_min_tx_interval % 1000000 * 1000;
 
     /* Create timer */
     if (timer_create(CLOCK_REALTIME, &sev, &btimer.timer_id) == -1) {
