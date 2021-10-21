@@ -66,8 +66,8 @@ int search_device_by_ip(char *ip, bool is_ipv6, char *device) {
     return EXIT_FAILURE;
 }
 
-/* Start per thread timer */
-int bfd_start_timer(struct bfd_timer *timer_data, struct itimerspec *ts) {
+/* Start TX per thread timer */
+int bfd_start_tx_timer(struct bfd_timer *timer_data, struct itimerspec *ts) {
 
     if (timer_settime(timer_data->timer_id, 0, ts, 0) == -1) {
         perror("timer settime");
@@ -77,7 +77,7 @@ int bfd_start_timer(struct bfd_timer *timer_data, struct itimerspec *ts) {
     return EXIT_SUCCESS;
 }
 
-int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *timer_data) {
+int bfd_update_tx_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *timer_data) {
 
     /* Update timer interval */
     ts.it_interval.tv_sec = curr_params->des_min_tx_interval / 1000000;

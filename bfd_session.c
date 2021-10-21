@@ -10,7 +10,7 @@
 #include "libbfd.h"
 
 /* Forward declarations */
-void timeout_handler(union sigval sv);
+void tx_timeout_handler(union sigval sv);
 
 /* Entry point of a new BFD session */
 void *bfd_session_run(void *args) {
@@ -126,9 +126,9 @@ void *bfd_session_run(void *args) {
         exit(EXIT_FAILURE);
     }
 
-    /* Initial timer configuration, we start sending packets at desired min TX interval (provided in us) */
+    /* Initial TX timer configuration, we start sending packets at 1s as per the standard */
     sev.sigev_notify = SIGEV_THREAD;                        /* Notify via thread */
-    sev.sigev_notify_function = &timeout_handler;           /* Handler function */
+    sev.sigev_notify_function = &tx_timeout_handler;        /* Handler function */
     sev.sigev_notify_attributes = NULL;                     /* Could be pointer to pthread_attr_t structure */
     sev.sigev_value.sival_ptr = &btimer;                    /* Pointer passed to handler */
 
@@ -145,7 +145,7 @@ void *bfd_session_run(void *args) {
     }
 
     /* Start timer */
-    if (bfd_start_timer(&btimer, &ts) == -1) {
+    if (bfd_start_tx_timer(&btimer, &ts) == -1) {
         fprintf(stderr, "bfd_start_timer error\n");
         exit(EXIT_FAILURE);
     }
@@ -213,7 +213,7 @@ void bfd_session_stop(bfd_session_id session_id) {
     }
 }
 
-void timeout_handler(union sigval sv) {
+void tx_timeout_handler(union sigval sv) {
 
     struct bfd_timer *timer_data = sv.sival_ptr;
 
