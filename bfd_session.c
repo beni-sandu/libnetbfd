@@ -12,6 +12,15 @@
 /* Forward declarations */
 void tx_timeout_handler(union sigval sv);
 
+void *get_in_addr(struct sockaddr *sa)
+{
+    if (sa->sa_family == AF_INET) {
+        return &(((struct sockaddr_in*)sa)->sin_addr);
+    }
+
+    return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
 /* Entry point of a new BFD session */
 void *bfd_session_run(void *args) {
 
@@ -22,6 +31,15 @@ void *bfd_session_run(void *args) {
     char if_name[32];                           /* Local interface used on capturing */
     struct bfd_ctrl_packet pkt;                 /* BFD control packet */
     libnet_ptag_t udp_tag = 0, ip_tag = 0;      /* libnet tags */
+    int sockfd;                                 /* UDP socket file descriptor */
+    struct sockaddr_in sav4;                    /* IPv4 socket address */
+    struct sockaddr_in6 sav6;                   /* IPv6 socket address */
+    char recv_buf[100];                         /* Buffer for received packet */
+    int numbytesrecv;                           /* Number of received bytes on socket */
+    struct bfd_ctrl_packet *bfdp;               /* Pointer to captured BFD packet */
+    struct sockaddr_storage src_addr;           /* Temporary socket address of packet source, used for debugging for now */
+    socklen_t addr_len;                         /* Size of src_addr */
+    char s[INET6_ADDRSTRLEN];
 
     struct bfd_timer btimer;
     struct sigevent sev;
@@ -149,7 +167,25 @@ void *bfd_session_run(void *args) {
         exit(EXIT_FAILURE);
     }
 
+    /* Create an UDP socket */
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+        perror("socket");
+        exit(EXIT_FAILURE);
+    }
+
+    /* Bind it */
+    memset(&sav4, 0, sizeof(struct sockaddr_in));
+    sav4.sin_family = AF_INET;
+    inet_pton(sav4.sin_family, curr_params->src_ip, &(sav4.sin_addr));
+    sav4.sin_port = htons(BFD_CTRL_PORT);
+    
+    if (bind(sockfd, (struct sockaddr *)&sav4, sizeof(sav4)) == -1) {
+       perror("bind");
+       exit(EXIT_FAILURE);
+    }
+
     btimer.send_next_pkt = 1;
+    addr_len = sizeof(src_addr);
 
     /* Main processing loop, where most of the magic happens */
     while (true) {
@@ -169,6 +205,24 @@ void *bfd_session_run(void *args) {
                 btimer.send_next_pkt = 0;
             }
         }
+
+        if ((numbytesrecv = recvfrom(sockfd, recv_buf, 100 , 0,
+            (struct sockaddr *)&src_addr, &addr_len)) == -1) {
+            perror("recvfrom");
+            exit(1);
+        }
+
+        pr_debug("got a %d sized packet from %s\n", numbytesrecv, inet_ntop(src_addr.ss_family,
+            get_in_addr((struct sockaddr *)&src_addr), s, sizeof(s)));
+
+        /* Is it a BFD packet? */        
+        if(numbytesrecv != BFD_PKG_MIN_SIZE)
+            continue;
+
+        bfdp = (struct bfd_ctrl_packet *)recv_buf;
+
+        pr_debug("My discr: 0x%x\n", ntohl(bfdp->my_discr));
+
     } // while (true)
 
     libnet_destroy(l);
