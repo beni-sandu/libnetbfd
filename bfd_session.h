@@ -46,14 +46,18 @@ struct bfd_session_params {
  * one with all the parameters, probably better to encapsulate it separately for the moment.
  */ 
 struct bfd_session {
+    uint8_t remote_version;
+    bool remote_multipoint;
+    bool remote_auth;
     enum bfd_state local_state;
     enum bfd_state remote_state;
     uint32_t local_discr;
     uint32_t remote_discr;
     enum bfd_diag local_diag;
+    enum bfd_diag remote_diag;
     uint32_t des_min_tx_interval;
     uint32_t req_min_rx_interval;
-    uint32_t remote_min_tx_interval;
+    uint32_t remote_min_rx_interval;
 };
 
 /* Add a typedef for a BFD session ID */
