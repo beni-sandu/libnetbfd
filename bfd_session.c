@@ -22,7 +22,6 @@ void *bfd_session_run(void *args) {
     char if_name[32];                           /* Local interface used on capturing */
     struct bfd_ctrl_packet pkt;                 /* BFD control packet */
     libnet_ptag_t udp_tag = 0, ip_tag = 0;      /* libnet tags */
-    struct libnet_stats ls;                     /* libnet stats */
 
     struct bfd_timer btimer;
     struct sigevent sev;
@@ -150,20 +149,13 @@ void *bfd_session_run(void *args) {
         exit(EXIT_FAILURE);
     }
 
-    int packets_sent = 1;
     btimer.send_next_pkt = 1;
 
-    /* Send 10 BFD packets at 1s intervals */
-    while (packets_sent < 10) {
+    /* Main processing loop, where most of the magic happens */
+    while (true) {
 
         if (btimer.send_next_pkt == 1) {
-            if (packets_sent == 5) {
-                pr_debug("Updating TX interval to 3s\n");
-                bfd_build_packet(curr_session->local_diag, curr_session->local_state, false, false, curr_params->detect_mult,
-                curr_session->local_discr, curr_session->remote_discr, 3000000, curr_session->req_min_rx_interval, &pkt);
-                bfd_build_udp(&pkt, &udp_tag, l);
-                bfd_update_timer(3000000, &ts, &btimer);
-            }
+
             /* Send BFD packet on wire */
             c = libnet_write(l);
 
@@ -173,12 +165,11 @@ void *bfd_session_run(void *args) {
                 exit(EXIT_FAILURE);
             } 
             else {
-                fprintf(stdout, "Wrote UDP packet on wire, size %d, packets_sent = %d\n", c, packets_sent);
+                fprintf(stdout, "Wrote UDP packet on wire, size %d\n", c);
                 btimer.send_next_pkt = 0;
-                packets_sent++;
             }
         }
-    }
+    } // while (true)
 
     libnet_destroy(l);
 
