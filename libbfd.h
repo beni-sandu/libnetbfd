@@ -10,6 +10,11 @@
 #define pr_debug(...)
 #endif
 
+#define max(a, b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a > _b ? _a : _b; })
+
 /* Data passed to per thread timer */
 struct bfd_timer {
     timer_t timer_id;                                       /* POSIX interval timer id */
