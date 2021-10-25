@@ -58,6 +58,8 @@ struct bfd_session {
     uint32_t des_min_tx_interval;
     uint32_t req_min_rx_interval;
     uint32_t remote_min_rx_interval;
+    uint32_t detection_time;
+    uint32_t remote_detect_mult;
 };
 
 /* Add a typedef for a BFD session ID */
