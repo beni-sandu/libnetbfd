@@ -231,6 +231,10 @@ void *bfd_session_run(void *args) {
             tx_jitter = (curr_session->des_min_tx_interval * (75 + ((uint32_t) random() % jitt_maxpercent))) / 100;
             bfd_update_tx_timer(tx_jitter, &ts, &btimer);
 
+            /*pr_debug("Sending BFD ctrl packet, diag: %d, state: %d, poll: %d, final: %d, detect_mult: %d, my_discr: 0x%x, your_discr: 0x%x, des_min_tx: %d, req_min_tx: %d\n",
+                curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final, curr_params->detect_mult, curr_session->local_discr,
+                curr_session->remote_discr, curr_params->des_min_tx_interval, curr_session->req_min_rx_interval);*/
+
             /* Update packet data */
             bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,
                 curr_params->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_params->des_min_tx_interval,
@@ -266,113 +270,114 @@ void *bfd_session_run(void *args) {
         
         /* TODO: we should probably also check for actual errors from recvfrom, and if we need to handle those somehow */
 
-        /* Reception of BFD control packets (section 6.8.6 in RFC5880) */
-        bfdp = (struct bfd_ctrl_packet *)recv_buf;
+        /* If we received a packet, go through processing */
+        if (numbytesrecv > 0) {
 
-        /* If the version number is not correct (1), packet MUST be discarded */
-        if (((bfdp->byte1.version >> 5) & 0x07) != 1)
-            continue;
-        
-        /* If the Length field is not correct, packet MUST be discarded */
-        if (bfdp->length != BFD_PKG_MIN_SIZE)
-            continue;
-        
-        /* If the Detect Mult field = 0, packet MUST be discarded */
-        if (bfdp->detect_mult == 0)
-            continue;
-        
-        /* If the Multipoint bit is != 0, packet MUST be discarded */
-        if ((bfdp->byte2.multipoint & 0x01) != 0)
-            continue;
-        
-        /* If My Discr = 0, packet MUST be discarded */
-        if (ntohl(bfdp->my_discr) == 0)
-            continue;
-        
-        /* If the Your Discriminator field is nonzero, it MUST be used to
-        select the session with which this BFD packet is associated.  If
-        no session is found, the packet MUST be discarded.
-        TODO: We should check this, but probably not needed, since we use
-        separate threads for each session with separate parameters */
+            /* Reception of BFD control packets (section 6.8.6 in RFC5880) */
+            bfdp = (struct bfd_ctrl_packet *)recv_buf;
 
-        /* If Your Discr = zero and State is not Down or AdminDown, packet MUST be discarded */
-        if (ntohl(bfdp->your_discr) == 0 && ((((bfdp->byte2.state >> 6) & 0x03) != BFD_STATE_DOWN) || (((bfdp->byte2.state >> 6) & 0x03) != BFD_STATE_ADMIN_DOWN)))
-            continue;
-        
-        /* If the Your Discriminator field is zero, the session MUST be
-        selected based on some combination of other fields, possibly
-        including source addressing information, the My Discriminator
-        field, and the interface over which the packet was received.  The
-        exact method of selection is application specific and is thus
-        outside the scope of this specification.  If a matching session is
-        not found, a new session MAY be created, or the packet MAY be
-        discarded.  This choice is outside the scope of this
-        specification.
-        TODO: Same as above, should not be needed */
-
-        /* If A bit is set, packet MUST be discarded (we don't support authentication) */
-        if (((bfdp->byte2.auth_present >> 2) & 0x01) == true)
-            continue;
-        
-        /* Set BFD session variables */
-        curr_session->remote_discr = ntohl(bfdp->my_discr);
-        curr_session->remote_state = (bfdp->byte2.state >> 6) & 0x03;
-        curr_session->remote_min_rx_interval = ntohl(bfdp->req_min_rx_interval);
-        curr_session->remote_version = (bfdp->byte1.version >> 5) & 0x07;
-        curr_session->remote_state = (bfdp->byte2.state >> 6) & 0x03;
-        curr_session->remote_multipoint = bfdp->byte2.multipoint & 0x01;
-        curr_session->remote_auth = (bfdp->byte2.auth_present >> 2) & 0x01;
-        curr_session->remote_detect_mult = bfdp->detect_mult;
-        curr_session->remote_des_min_tx_interval = ntohl(bfdp->des_min_tx_interval);
-
-        /* If a Poll Sequence is being transmitted by the local system and
-        the Final (F) bit in the received packet is set, the Poll Sequence
-        MUST be terminated.
-        TODO: implement Polling sequence */
-
-        /* Update the transmit interval as per section 6.8.2 */
-        curr_session->des_min_tx_interval = max(curr_session->des_min_tx_interval, curr_session->remote_min_rx_interval);
-        
-        /* Update the Detection Time as per section 6.8.4 */
-        curr_session->detection_time = curr_session->remote_detect_mult * curr_session->remote_des_min_tx_interval;
-
-        /* BFD state machine logic */
-        if (curr_session->local_state == BFD_STATE_ADMIN_DOWN) {
-            pr_debug("Got BFD packet from: %s while in ADMIN_DOWN.\n", curr_params->dst_ip);
-            continue;
-        }
-
-        if (curr_session->remote_state == BFD_STATE_ADMIN_DOWN) {
-            if (curr_session->local_state != BFD_STATE_DOWN) {
-                    curr_session->local_diag = BFD_DIAG_NEIGH_SIGNL_SESS_DOWN;
-                    curr_session->local_state = BFD_STATE_DOWN;
-                    pr_debug("BFD remote: %s signaled going ADMIN_DOWN.\n", curr_params->dst_ip);
+            /* If the version number is not correct (1), packet MUST be discarded */
+            if (((bfdp->byte1.version >> 5) & 0x07) != 1) {
+                pr_debug("Wrong version number.\n");
+                continue;
             }
-        }
-        else {
-            if (curr_session->local_state == BFD_STATE_DOWN) {
-                if (curr_session->remote_state == BFD_STATE_DOWN) {
-                    curr_session->local_state = BFD_STATE_INIT;
-                    pr_debug("BFD session: %s going to INIT.\n", curr_params->src_ip);
-                }
-                else if (curr_session->remote_state == BFD_STATE_INIT) {
-                    curr_session->local_state = BFD_STATE_UP;
-                    pr_debug("BFD session: %s going to UP.\n", curr_params->src_ip);
+        
+            /* If the Length field is not correct, packet MUST be discarded */
+            if (bfdp->length != BFD_PKG_MIN_SIZE) {
+                pr_debug("Wrong packet length.\n");
+                continue;
+            }
+        
+            /* If the Detect Mult field = 0, packet MUST be discarded */
+            if (bfdp->detect_mult == 0) {
+                pr_debug("Wrong detect mult.\n");
+                continue;
+            }
+        
+            /* If the Multipoint bit is != 0, packet MUST be discarded */
+            if ((bfdp->byte2.multipoint & 0x01) != 0) {
+                pr_debug("Wrong multipoint setting.\n");
+                continue;
+            }
+        
+            /* If My Discr = 0, packet MUST be discarded */
+            if (ntohl(bfdp->my_discr) == 0) {
+                pr_debug("Bad my_discr value.\n");
+                continue;
+            }
+
+            /* If Your Discr = zero and State is not Down or AdminDown, packet MUST be discarded */
+            if (ntohl(bfdp->your_discr) == 0 && ((((bfdp->byte2.state >> 6) & 0x03) != BFD_STATE_DOWN) ||
+                    (((bfdp->byte2.state >> 6) & 0x03) == BFD_STATE_ADMIN_DOWN))) {
+                pr_debug("Bad state, zero your_discr.\n");
+                continue;
+            }
+
+            /* If A bit is set, packet MUST be discarded (we don't support authentication) */
+            if (((bfdp->byte2.auth_present >> 2) & 0x01) == true) {
+                pr_debug("Authentication is not supported.\n");
+                continue;
+            }
+        
+            /* Set BFD session variables */
+            curr_session->remote_discr = ntohl(bfdp->my_discr);
+            curr_session->remote_state = (bfdp->byte2.state >> 6) & 0x03;
+            curr_session->remote_min_rx_interval = ntohl(bfdp->req_min_rx_interval);
+            curr_session->remote_version = (bfdp->byte1.version >> 5) & 0x07;
+            curr_session->remote_state = (bfdp->byte2.state >> 6) & 0x03;
+            curr_session->remote_multipoint = bfdp->byte2.multipoint & 0x01;
+            curr_session->remote_auth = (bfdp->byte2.auth_present >> 2) & 0x01;
+            curr_session->remote_detect_mult = bfdp->detect_mult;
+            curr_session->remote_des_min_tx_interval = ntohl(bfdp->des_min_tx_interval);
+
+            /* If a Poll Sequence is being transmitted by the local system and
+            the Final (F) bit in the received packet is set, the Poll Sequence
+            MUST be terminated.
+            TODO: implement Polling sequence */
+
+            /* Update the transmit interval as per section 6.8.2 */
+            curr_session->des_min_tx_interval = max(curr_session->des_min_tx_interval, curr_session->remote_min_rx_interval);
+        
+            /* Update the Detection Time as per section 6.8.4 */
+            curr_session->detection_time = curr_session->remote_detect_mult * curr_session->remote_des_min_tx_interval;
+
+            /* BFD state machine logic */
+            if (curr_session->local_state == BFD_STATE_ADMIN_DOWN) {
+                pr_debug("Got BFD packet from: %s while in ADMIN_DOWN.\n", curr_params->dst_ip);
+                continue;
+            }
+
+            if (curr_session->remote_state == BFD_STATE_ADMIN_DOWN) {
+                if (curr_session->local_state != BFD_STATE_DOWN) {
+                        curr_session->local_diag = BFD_DIAG_NEIGH_SIGNL_SESS_DOWN;
+                        curr_session->local_state = BFD_STATE_DOWN;
+                        pr_debug("BFD remote: %s signaled going ADMIN_DOWN.\n", curr_params->dst_ip);
                 }
             }
-            else if (curr_session->local_state == BFD_STATE_INIT) {
-                    if (curr_session->remote_state == BFD_STATE_INIT || curr_session->remote_state == BFD_STATE_UP) {
+            else {
+                if (curr_session->local_state == BFD_STATE_DOWN) {
+                    if (curr_session->remote_state == BFD_STATE_DOWN) {
+                        curr_session->local_state = BFD_STATE_INIT;
+                        pr_debug("BFD session: %s going to INIT.\n", curr_params->src_ip);
+                    }
+                    else if (curr_session->remote_state == BFD_STATE_INIT) {
                         curr_session->local_state = BFD_STATE_UP;
                         pr_debug("BFD session: %s going to UP.\n", curr_params->src_ip);
                     }
-            }
-            else    //curr_session->local_state = BFD_STATE_UP
-                if (curr_session->remote_state == BFD_STATE_DOWN) {
-                        curr_session->local_diag = BFD_DIAG_NEIGH_SIGNL_SESS_DOWN;
-                        curr_session->local_state = BFD_STATE_DOWN;
-                        pr_debug("BFD remote: %s signaled going DOWN.\n", curr_params->dst_ip);
                 }
-        }
+                else if (curr_session->local_state == BFD_STATE_INIT) {
+                        if (curr_session->remote_state == BFD_STATE_INIT || curr_session->remote_state == BFD_STATE_UP) {
+                            curr_session->local_state = BFD_STATE_UP;
+                            pr_debug("BFD session: %s going to UP.\n", curr_params->src_ip);
+                        }
+                }
+                else    //curr_session->local_state = BFD_STATE_UP
+                    if (curr_session->remote_state == BFD_STATE_DOWN) {
+                            curr_session->local_diag = BFD_DIAG_NEIGH_SIGNL_SESS_DOWN;
+                            curr_session->local_state = BFD_STATE_DOWN;
+                            pr_debug("BFD remote: %s signaled going DOWN.\n", curr_params->dst_ip);
+                    }
+            }
 
         btimer.send_next_pkt = 1;
         
@@ -380,6 +385,7 @@ void *bfd_session_run(void *args) {
         remote system with the Poll (P) bit clear, and the Final (F) bit
         set (see section 6.8.7). */
 
+        } //if (numbytesrecv > 0)
     } // while (true)
 
     libnet_destroy(l);
