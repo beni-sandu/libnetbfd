@@ -37,12 +37,7 @@ int recvfrom_timeout(int s, char *buf, int len, int timeout_us, struct sockaddr 
     /* Wait until timeout or data received.
     TODO: check if this is fast enough or, we should use something like libevent. */
     n = select(s+1, &fds, NULL, NULL, &tv);
-    if (n == 0) {
-        if (local_state == BFD_STATE_UP)
-            pr_debug("BFD session going DOWN\n");
-        return -2; // timeout!
-    }
-
+    if (n == 0) return -2; // timeout!
     if (n == -1) return -1; // error
 
     /* We have data in the buffer, so do normal recvfrom */
@@ -206,8 +201,6 @@ void *bfd_session_run(void *args) {
         exit(EXIT_FAILURE);
     }
 
-    //fcntl(sockfd, F_SETFL, O_NONBLOCK);
-
     /* Bind it */
     memset(&sav4, 0, sizeof(struct sockaddr_in));
     sav4.sin_family = AF_INET;
@@ -255,25 +248,23 @@ void *bfd_session_run(void *args) {
                 exit(EXIT_FAILURE);
             } 
             else {
-                fprintf(stdout, "Wrote UDP packet on wire, total size %d\n", c);
                 btimer.send_next_pkt = 0;
             }
         }
         
         /* Receive a BFD packet */
-        if ((numbytesrecv = recvfrom(sockfd, recv_buf, 100 , 0,
-            (struct sockaddr *)&src_addr, &addr_len)) == -1) {
-            perror("recvfrom");
-            exit(1);
-        }
+        numbytesrecv = recvfrom_timeout(sockfd, recv_buf, 100 , curr_session->detection_time,
+            (struct sockaddr *)&src_addr, &addr_len, curr_session->local_state);
         
-        //if (curr_session->local_state == BFD_STATE_UP)
-        //int recvfrom_timeout(int s, char *buf, int len, int timeout_us, struct sockaddr *src_addr, socklen_t *addrlen)
-        //numbytesrecv = recvfrom_timeout(sockfd, recv_buf, 100 , curr_session->detection_time,
-        //    (struct sockaddr *)&src_addr, &addr_len, curr_session->local_state);
-
-        //pr_debug("got a %d sized packet from %s\n", numbytesrecv, inet_ntop(src_addr.ss_family,
-        //    get_in_addr((struct sockaddr *)&src_addr), s, sizeof(s)));
+        /* Only check for timeout, in which case if the session was UP or INIT, declare it down */
+        if (numbytesrecv == -2)
+            if (curr_session->local_state == BFD_STATE_UP || curr_session->local_state == BFD_STATE_INIT) {
+                curr_session->local_state = BFD_STATE_DOWN;
+                curr_session->local_diag = BFD_DIAG_CTRL_DETECT_TIME_EXPIRED;
+                pr_debug("Detected BFD remote %s going DOWN.\n", curr_params->dst_ip);
+            }
+        
+        /* TODO: we should probably also check for actual errors from recvfrom, and if we need to handle those somehow */
 
         /* Reception of BFD control packets (section 6.8.6 in RFC5880) */
         bfdp = (struct bfd_ctrl_packet *)recv_buf;
