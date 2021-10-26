@@ -56,6 +56,7 @@ struct bfd_session {
     enum bfd_diag local_diag;
     enum bfd_diag remote_diag;
     uint32_t des_min_tx_interval;
+    uint32_t remote_des_min_tx_interval;
     uint32_t req_min_rx_interval;
     uint32_t remote_min_rx_interval;
     uint32_t detection_time;
