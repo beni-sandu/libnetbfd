@@ -21,6 +21,34 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
+int recvfrom_timeout(int s, char *buf, int len, int timeout_us, struct sockaddr *src_addr, socklen_t *addrlen, enum bfd_state local_state) {
+    fd_set fds;
+    int n;
+    struct timeval tv;
+
+    /* Set up the file descriptor set */
+    FD_ZERO(&fds);
+    FD_SET(s, &fds);
+
+    /* Set up the struct timeval for the timeout */
+    tv.tv_sec = timeout_us / 1000000;
+    tv.tv_usec = timeout_us % 1000000;
+
+    /* Wait until timeout or data received.
+    TODO: check if this is fast enough or, we should use something like libevent. */
+    n = select(s+1, &fds, NULL, NULL, &tv);
+    if (n == 0) {
+        if (local_state == BFD_STATE_UP)
+            pr_debug("BFD session going DOWN\n");
+        return -2; // timeout!
+    }
+
+    if (n == -1) return -1; // error
+
+    /* We have data in the buffer, so do normal recvfrom */
+    return recvfrom(s, buf, len, 0, src_addr, addrlen);
+}
+
 /* Entry point of a new BFD session */
 void *bfd_session_run(void *args) {
 
@@ -98,10 +126,13 @@ void *bfd_session_run(void *args) {
     curr_session->remote_min_rx_interval = 0;
     curr_session->remote_state = BFD_STATE_DOWN;
     curr_session->req_min_rx_interval = curr_params->req_min_rx_interval;
+    curr_session->detection_time = 1000000;
+    curr_session->local_poll = false;
+    curr_session->local_final = false;
 
     /* Build initial BFD control packet */
-    bfd_build_packet(curr_session->local_diag, curr_session->local_state, false, false, curr_params->detect_mult,
-                curr_session->local_discr, curr_session->remote_discr, curr_params->des_min_tx_interval,
+    bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,
+                curr_params->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_params->des_min_tx_interval,
                 curr_session->req_min_rx_interval, &pkt);
 
     /* Build UDP header */
@@ -173,6 +204,8 @@ void *bfd_session_run(void *args) {
         exit(EXIT_FAILURE);
     }
 
+    //fcntl(sockfd, F_SETFL, O_NONBLOCK);
+
     /* Bind it */
     memset(&sav4, 0, sizeof(struct sockaddr_in));
     sav4.sin_family = AF_INET;
@@ -189,8 +222,17 @@ void *bfd_session_run(void *args) {
 
     /* Main processing loop, where most of the magic happens */
     while (true) {
-
+        
+        /* Send next BFD packet */
         if (btimer.send_next_pkt == 1) {
+
+            /* Update packet data */
+            bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,
+                curr_params->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_params->des_min_tx_interval,
+                curr_session->req_min_rx_interval, &pkt);
+
+            /* Update UDP header */
+            bfd_build_udp(&pkt, &udp_tag, l);
 
             /* Send BFD packet on wire */
             c = libnet_write(l);
@@ -201,27 +243,142 @@ void *bfd_session_run(void *args) {
                 exit(EXIT_FAILURE);
             } 
             else {
-                fprintf(stdout, "Wrote UDP packet on wire, size %d\n", c);
+                fprintf(stdout, "Wrote UDP packet on wire, total size %d\n", c);
                 btimer.send_next_pkt = 0;
             }
         }
-
+        
+        /* Receive a BFD packet */
         if ((numbytesrecv = recvfrom(sockfd, recv_buf, 100 , 0,
             (struct sockaddr *)&src_addr, &addr_len)) == -1) {
             perror("recvfrom");
             exit(1);
         }
+        
+        //if (curr_session->local_state == BFD_STATE_UP)
+        //int recvfrom_timeout(int s, char *buf, int len, int timeout_us, struct sockaddr *src_addr, socklen_t *addrlen)
+        //numbytesrecv = recvfrom_timeout(sockfd, recv_buf, 100 , curr_session->detection_time,
+        //    (struct sockaddr *)&src_addr, &addr_len, curr_session->local_state);
 
-        pr_debug("got a %d sized packet from %s\n", numbytesrecv, inet_ntop(src_addr.ss_family,
-            get_in_addr((struct sockaddr *)&src_addr), s, sizeof(s)));
+        //pr_debug("got a %d sized packet from %s\n", numbytesrecv, inet_ntop(src_addr.ss_family,
+        //    get_in_addr((struct sockaddr *)&src_addr), s, sizeof(s)));
 
-        /* Is it a BFD packet? */        
-        if(numbytesrecv != BFD_PKG_MIN_SIZE)
-            continue;
-
+        /* Reception of BFD control packets (section 6.8.6 in RFC5880) */
         bfdp = (struct bfd_ctrl_packet *)recv_buf;
 
-        pr_debug("My discr: 0x%x\n", ntohl(bfdp->my_discr));
+        /* If the version number is not correct (1), packet MUST be discarded */
+        if (((bfdp->byte1.version >> 5) & 0x07) != 1)
+            continue;
+        
+        /* If the Length field is not correct, packet MUST be discarded */
+        if (bfdp->length != BFD_PKG_MIN_SIZE)
+            continue;
+        
+        /* If the Detect Mult field = 0, packet MUST be discarded */
+        if (bfdp->detect_mult == 0)
+            continue;
+        
+        /* If the Multipoint bit is != 0, packet MUST be discarded */
+        if ((bfdp->byte2.multipoint & 0x01) != 0)
+            continue;
+        
+        /* If My Discr = 0, packet MUST be discarded */
+        if (ntohl(bfdp->my_discr) == 0)
+            continue;
+        
+        /* If the Your Discriminator field is nonzero, it MUST be used to
+        select the session with which this BFD packet is associated.  If
+        no session is found, the packet MUST be discarded.
+        TODO: We should check this, but probably not needed, since we use
+        separate threads for each session with separate parameters */
+
+        /* If Your Discr = zero and State is not Down or AdminDown, packet MUST be discarded */
+        if (ntohl(bfdp->your_discr) == 0 && ((((bfdp->byte2.state >> 6) & 0x03) != BFD_STATE_DOWN) || (((bfdp->byte2.state >> 6) & 0x03) != BFD_STATE_ADMIN_DOWN)))
+            continue;
+        
+        /* If the Your Discriminator field is zero, the session MUST be
+        selected based on some combination of other fields, possibly
+        including source addressing information, the My Discriminator
+        field, and the interface over which the packet was received.  The
+        exact method of selection is application specific and is thus
+        outside the scope of this specification.  If a matching session is
+        not found, a new session MAY be created, or the packet MAY be
+        discarded.  This choice is outside the scope of this
+        specification.
+        TODO: Same as above, should not be needed */
+
+        /* If A bit is set, packet MUST be discarded (we don't support authentication) */
+        if (((bfdp->byte2.auth_present >> 2) & 0x01) == true)
+            continue;
+        
+        /* Set BFD session variables */
+        curr_session->remote_discr = ntohl(bfdp->my_discr);
+        curr_session->remote_state = (bfdp->byte2.state >> 6) & 0x03;
+        curr_session->remote_min_rx_interval = ntohl(bfdp->req_min_rx_interval);
+        curr_session->remote_version = (bfdp->byte1.version >> 5) & 0x07;
+        curr_session->remote_state = (bfdp->byte2.state >> 6) & 0x03;
+        curr_session->remote_multipoint = bfdp->byte2.multipoint & 0x01;
+        curr_session->remote_auth = (bfdp->byte2.auth_present >> 2) & 0x01;
+        curr_session->remote_detect_mult = bfdp->detect_mult;
+        curr_session->remote_des_min_tx_interval = ntohl(bfdp->des_min_tx_interval);
+
+        /* If a Poll Sequence is being transmitted by the local system and
+        the Final (F) bit in the received packet is set, the Poll Sequence
+        MUST be terminated.
+        TODO: implement Polling sequence */
+
+        /* Update the transmit interval as per section 6.8.2 */
+        curr_session->des_min_tx_interval = max(curr_session->des_min_tx_interval, curr_session->remote_min_rx_interval);
+
+        /* Apply a 12% jitter and update the TX timer. TODO: standard says jitter value should be random between 0 - 25% */
+        bfd_update_tx_timer(curr_session->des_min_tx_interval * 1.12, &ts, &btimer);
+        
+        /* Update the Detection Time as per section 6.8.4 */
+        curr_session->detection_time = curr_session->remote_detect_mult * curr_session->remote_des_min_tx_interval;
+
+        /* BFD state machine logic */
+        if (curr_session->local_state == BFD_STATE_ADMIN_DOWN) {
+            pr_debug("Got BFD packet from: %s while in ADMIN_DOWN.\n", curr_params->dst_ip);
+            continue;
+        }
+
+        if (curr_session->remote_state == BFD_STATE_ADMIN_DOWN) {
+            if (curr_session->local_state != BFD_STATE_DOWN) {
+                    curr_session->local_diag = BFD_DIAG_NEIGH_SIGNL_SESS_DOWN;
+                    curr_session->local_state = BFD_STATE_DOWN;
+                    pr_debug("BFD remote: %s signaled going ADMIN_DOWN.\n", curr_params->dst_ip);
+            }
+        }
+        else {
+            if (curr_session->local_state == BFD_STATE_DOWN) {
+                if (curr_session->remote_state == BFD_STATE_DOWN) {
+                    curr_session->local_state = BFD_STATE_INIT;
+                    pr_debug("BFD session: %s going to INIT.\n", curr_params->src_ip);
+                }
+                else if (curr_session->remote_state == BFD_STATE_INIT) {
+                    curr_session->local_state = BFD_STATE_UP;
+                    pr_debug("BFD session: %s going to UP.\n", curr_params->src_ip);
+                }
+            }
+            else if (curr_session->local_state == BFD_STATE_INIT) {
+                    if (curr_session->remote_state == BFD_STATE_INIT || curr_session->remote_state == BFD_STATE_UP) {
+                        curr_session->local_state = BFD_STATE_UP;
+                        pr_debug("BFD session: %s going to UP.\n", curr_params->src_ip);
+                    }
+            }
+            else    //curr_session->local_state = BFD_STATE_UP
+                if (curr_session->remote_state == BFD_STATE_DOWN) {
+                        curr_session->local_diag = BFD_DIAG_NEIGH_SIGNL_SESS_DOWN;
+                        curr_session->local_state = BFD_STATE_DOWN;
+                        pr_debug("BFD remote: %s signaled going DOWN.\n", curr_params->dst_ip);
+                }
+        }
+
+        btimer.send_next_pkt = 1;
+        
+        /* TODO: If the Poll (P) bit is set, send a BFD Control packet to the
+        remote system with the Poll (P) bit clear, and the Final (F) bit
+        set (see section 6.8.7). */
 
     } // while (true)
 
