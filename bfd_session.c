@@ -115,7 +115,7 @@ void *bfd_session_run(void *args) {
     srandom((uint64_t)curr_params);
 
     /* Configure initial values for the new BFD session */
-    curr_session->des_min_tx_interval = (curr_params->des_min_tx_interval < 1000000) ? 1000000 : curr_params->des_min_tx_interval;
+    curr_session->tx_interval = (curr_params->des_min_tx_interval < 1000000) ? 1000000 : curr_params->des_min_tx_interval;
     curr_session->local_diag = BFD_DIAG_NODIAG;
     curr_session->local_discr = (uint32_t)(random());
     curr_session->local_state = BFD_STATE_DOWN;
@@ -178,10 +178,10 @@ void *bfd_session_run(void *args) {
     sev.sigev_value.sival_ptr = &btimer;                    /* Pointer passed to handler */
 
     /* Configure interval */
-    ts.it_interval.tv_sec = curr_session->des_min_tx_interval / 1000000;
-    ts.it_interval.tv_nsec = curr_session->des_min_tx_interval % 1000000 * 1000;
-    ts.it_value.tv_sec = curr_session->des_min_tx_interval / 1000000;
-    ts.it_value.tv_nsec = curr_session->des_min_tx_interval % 1000000 * 1000;
+    ts.it_interval.tv_sec = curr_session->tx_interval / 1000000;
+    ts.it_interval.tv_nsec = curr_session->tx_interval % 1000000 * 1000;
+    ts.it_value.tv_sec = curr_session->tx_interval / 1000000;
+    ts.it_value.tv_nsec = curr_session->tx_interval % 1000000 * 1000;
 
     /* Create timer */
     if (timer_create(CLOCK_REALTIME, &sev, &btimer.timer_id) == -1) {
@@ -228,7 +228,7 @@ void *bfd_session_run(void *args) {
             * between 75% and 90%. This needs to be done on a per packet basis.
             */
             jitt_maxpercent = (curr_params->detect_mult == 1) ? 15 : 25;
-            tx_jitter = (curr_session->des_min_tx_interval * (75 + ((uint32_t) random() % jitt_maxpercent))) / 100;
+            tx_jitter = (curr_session->tx_interval * (75 + ((uint32_t) random() % jitt_maxpercent))) / 100;
             bfd_update_tx_timer(tx_jitter, &ts, &btimer);
 
             /*pr_debug("Sending BFD ctrl packet, diag: %d, state: %d, poll: %d, final: %d, detect_mult: %d, my_discr: 0x%x, your_discr: 0x%x, des_min_tx: %d, req_min_tx: %d\n",
@@ -336,7 +336,7 @@ void *bfd_session_run(void *args) {
             TODO: implement Polling sequence */
 
             /* Update the transmit interval as per section 6.8.2 */
-            curr_session->des_min_tx_interval = max(curr_session->des_min_tx_interval, curr_session->remote_min_rx_interval);
+            curr_session->tx_interval = max(curr_session->tx_interval, curr_session->remote_min_rx_interval);
         
             /* Update the Detection Time as per section 6.8.4 */
             curr_session->detection_time = curr_session->remote_detect_mult * curr_session->remote_des_min_tx_interval;
