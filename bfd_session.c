@@ -378,8 +378,6 @@ void *bfd_session_run(void *args) {
                             pr_debug("BFD remote: %s signaled going DOWN.\n", curr_params->dst_ip);
                     }
             }
-
-        btimer.send_next_pkt = 1;
         
         /* TODO: If the Poll (P) bit is set, send a BFD Control packet to the
         remote system with the Poll (P) bit clear, and the Final (F) bit
