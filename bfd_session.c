@@ -115,7 +115,7 @@ void *bfd_session_run(void *args) {
     srandom((uint64_t)curr_params);
 
     /* Configure initial values for the new BFD session */
-    curr_session->des_min_tx_interval = 1000000;
+    curr_session->des_min_tx_interval = (curr_params->des_min_tx_interval < 1000000) ? 1000000 : curr_params->des_min_tx_interval;
     curr_session->local_diag = BFD_DIAG_NODIAG;
     curr_session->local_discr = (uint32_t)(random());
     curr_session->local_state = BFD_STATE_DOWN;
@@ -171,17 +171,17 @@ void *bfd_session_run(void *args) {
         exit(EXIT_FAILURE);
     }
 
-    /* Initial TX timer configuration, we start sending packets at 1s as per the standard */
+    /* Initial TX timer configuration, we start sending packets at min 1s as per the standard */
     sev.sigev_notify = SIGEV_THREAD;                        /* Notify via thread */
     sev.sigev_notify_function = &tx_timeout_handler;        /* Handler function */
     sev.sigev_notify_attributes = NULL;                     /* Could be pointer to pthread_attr_t structure */
     sev.sigev_value.sival_ptr = &btimer;                    /* Pointer passed to handler */
 
     /* Configure interval */
-    ts.it_interval.tv_sec = curr_params->des_min_tx_interval / 1000000;
-    ts.it_interval.tv_nsec = curr_params->des_min_tx_interval % 1000000 * 1000;
-    ts.it_value.tv_sec = curr_params->des_min_tx_interval / 1000000;
-    ts.it_value.tv_nsec = curr_params->des_min_tx_interval % 1000000 * 1000;
+    ts.it_interval.tv_sec = curr_session->des_min_tx_interval / 1000000;
+    ts.it_interval.tv_nsec = curr_session->des_min_tx_interval % 1000000 * 1000;
+    ts.it_value.tv_sec = curr_session->des_min_tx_interval / 1000000;
+    ts.it_value.tv_nsec = curr_session->des_min_tx_interval % 1000000 * 1000;
 
     /* Create timer */
     if (timer_create(CLOCK_REALTIME, &sev, &btimer.timer_id) == -1) {
