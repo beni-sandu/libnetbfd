@@ -67,6 +67,8 @@ void *bfd_session_run(void *args) {
     struct bfd_ctrl_packet *bfdp;               /* Pointer to captured BFD packet */
     struct sockaddr_storage src_addr;           /* Temporary socket address of packet source, used for debugging for now */
     socklen_t addr_len;                         /* Size of src_addr */
+    uint32_t tx_jitter = 0;
+    uint32_t jitt_maxpercent = 0;
     char s[INET6_ADDRSTRLEN];
 
     struct bfd_timer btimer;
@@ -226,6 +228,16 @@ void *bfd_session_run(void *args) {
         /* Send next BFD packet */
         if (btimer.send_next_pkt == 1) {
 
+            /*
+            * Apply jitter to TX transmit interval as per section 6.8.7:
+            * transmit interval should be randomly jittered between
+            * 75% and 100% of nominal value, unless DetectMult is 1, then should be
+            * between 75% and 90%. This needs to be done on a per packet basis.
+            */
+            jitt_maxpercent = (curr_params->detect_mult == 1) ? 15 : 25;
+            tx_jitter = (curr_session->des_min_tx_interval * (75 + ((uint32_t) random() % jitt_maxpercent))) / 100;
+            bfd_update_tx_timer(tx_jitter, &ts, &btimer);
+
             /* Update packet data */
             bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,
                 curr_params->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_params->des_min_tx_interval,
@@ -329,9 +341,6 @@ void *bfd_session_run(void *args) {
 
         /* Update the transmit interval as per section 6.8.2 */
         curr_session->des_min_tx_interval = max(curr_session->des_min_tx_interval, curr_session->remote_min_rx_interval);
-
-        /* Apply a 12% jitter and update the TX timer. TODO: standard says jitter value should be random between 0 - 25% */
-        bfd_update_tx_timer(curr_session->des_min_tx_interval * 1.12, &ts, &btimer);
         
         /* Update the Detection Time as per section 6.8.4 */
         curr_session->detection_time = curr_session->remote_detect_mult * curr_session->remote_des_min_tx_interval;
