@@ -12,11 +12,11 @@ int main(void) {
 
     struct bfd_session_params s1_params = {
         .callback = &bfd_callback,
-        .des_min_tx_interval = 1000000,   //in us
+        .des_min_tx_interval = 500000,   //in us
         .detect_mult = 1,
         .dst_ip = "192.168.1.2",
         .is_ipv6 = false,
-        .req_min_rx_interval = 1000000,   //in us
+        .req_min_rx_interval = 500000,   //in us
         .src_ip = "192.168.1.1",
     };
 
@@ -27,7 +27,7 @@ int main(void) {
     else
         printf("Error starting BFD session for IP: %s\n", s1_params.src_ip);
     
-    sleep(5);
+    sleep(60);
 
     bfd_session_stop(s1);
 }

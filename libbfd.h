@@ -18,7 +18,7 @@
 /* Data passed to per thread timer */
 struct bfd_timer {
     timer_t timer_id;                                       /* POSIX interval timer id */
-    bool send_next_pkt;                                     /* Flag to control packet transaction */
+    bool next_pkt;                                          /* Flag to control packet transaction */
     struct bfd_session_params *sess_params;                 /* pointer to current BFD session parameters if needed */
 };
 
@@ -45,4 +45,5 @@ static inline void bfd_build_udp(struct bfd_ctrl_packet *pkt, libnet_ptag_t *udp
 /* Function prototypes */
 int search_device_by_ip(char *ip, bool is_ipv6, char *device);
 int bfd_start_tx_timer(struct bfd_timer *timer_data, struct itimerspec *ts);
-int bfd_update_tx_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *btimer);
+int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *btimer);
+char *state2string(enum bfd_state state);
