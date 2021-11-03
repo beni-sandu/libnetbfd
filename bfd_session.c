@@ -82,7 +82,7 @@ void *bfd_session_run(void *args) {
     srandom((uint64_t)curr_params);
 
     /* Configure initial values for the new BFD session */
-    curr_session->tx_interval = (curr_params->des_min_tx_interval < 1000000) ? 1000000 : curr_params->des_min_tx_interval;
+    curr_session->des_min_tx_interval = (curr_params->des_min_tx_interval < 1000000) ? 1000000 : curr_params->des_min_tx_interval;
     curr_session->local_diag = BFD_DIAG_NODIAG;
     curr_session->local_discr = (uint32_t)(random());
     curr_session->local_state = BFD_STATE_DOWN;
@@ -96,7 +96,7 @@ void *bfd_session_run(void *args) {
 
     /* Build initial BFD control packet */
     bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,
-                curr_params->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_params->des_min_tx_interval,
+                curr_params->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_session->des_min_tx_interval,
                 curr_session->req_min_rx_interval, &pkt);
 
     /* Build UDP header */
@@ -145,10 +145,10 @@ void *bfd_session_run(void *args) {
     tx_sev.sigev_value.sival_ptr = &tx_timer;                  /* Pointer passed to handler */
 
     /* Configure TX interval */
-    tx_ts.it_interval.tv_sec = curr_session->tx_interval / 1000000;
-    tx_ts.it_interval.tv_nsec = curr_session->tx_interval % 1000000 * 1000;
-    tx_ts.it_value.tv_sec = curr_session->tx_interval / 1000000;
-    tx_ts.it_value.tv_nsec = curr_session->tx_interval % 1000000 * 1000;
+    tx_ts.it_interval.tv_sec = curr_session->des_min_tx_interval / 1000000;
+    tx_ts.it_interval.tv_nsec = curr_session->des_min_tx_interval % 1000000 * 1000;
+    tx_ts.it_value.tv_sec = curr_session->des_min_tx_interval / 1000000;
+    tx_ts.it_value.tv_nsec = curr_session->des_min_tx_interval % 1000000 * 1000;
 
     /* Initial RX timer configuration, default detection time 1s */
     rx_sev.sigev_notify = SIGEV_THREAD;                        /* Notify via thread */
@@ -205,7 +205,7 @@ void *bfd_session_run(void *args) {
 
             /* Update packet data */
             bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,
-                curr_params->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_params->des_min_tx_interval,
+                curr_params->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_session->des_min_tx_interval,
                 curr_session->req_min_rx_interval, &pkt);
 
             /* Update UDP header */
@@ -224,7 +224,7 @@ void *bfd_session_run(void *args) {
 
             /* Apply jitter to TX transmit interval as per section 6.8.7 and start the timer for the next packet */
             jitt_maxpercent = (curr_params->detect_mult == 1) ? 15 : 25;
-            tx_jitter = (curr_session->tx_interval * (75 + ((uint32_t) random() % jitt_maxpercent))) / 100;
+            tx_jitter = (curr_session->des_min_tx_interval * (75 + ((uint32_t) random() % jitt_maxpercent))) / 100;
             bfd_update_timer(tx_jitter, &tx_ts, &tx_timer);
         }
 
@@ -305,7 +305,7 @@ void *bfd_session_run(void *args) {
                 curr_session->remote_des_min_tx_interval = ntohl(bfdp->des_min_tx_interval);
 
                 /* Update the transmit interval as per section 6.8.2 */
-                curr_session->tx_interval = max(curr_session->tx_interval, curr_session->remote_min_rx_interval);
+                curr_session->des_min_tx_interval = max(curr_session->des_min_tx_interval, curr_session->remote_min_rx_interval);
 
                 /* Update the Detection Time as per section 6.8.4 */
                 curr_session->detection_time = curr_session->remote_detect_mult * curr_session->remote_des_min_tx_interval;
