@@ -81,3 +81,33 @@ int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *t
 
     return EXIT_SUCCESS;
 }
+
+char *state2string(enum bfd_state state) {
+
+    switch(state) {
+        case BFD_STATE_UP:
+            return "BFD_STATE_UP";
+        case BFD_STATE_DOWN:
+            return "BFD_STATE_DOWN";
+        case BFD_STATE_INIT:
+            return "BFD_STATE_INIT";
+        case BFD_STATE_ADMIN_DOWN:
+            return "BFD_STATE_ADMIN_DOWN";
+    }
+    
+    return "UNKNOWN BFD STATE";
+}
+
+char *get_time(char *t_now) {
+    time_t now;
+	struct tm *local = NULL;
+	char timestamp[100];
+
+    now = time(NULL);
+	local = localtime(&now);
+	strftime(timestamp, sizeof(timestamp), "%H:%M:%S", local);
+    
+    strcpy(t_now, timestamp);
+
+    return t_now;
+}
