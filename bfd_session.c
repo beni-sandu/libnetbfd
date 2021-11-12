@@ -44,27 +44,29 @@ int recvfrom_ppoll(int sockfd, char *recv_buf, int buf_size, int timeout_us) {
 /* Entry point of a new BFD session */
 void *bfd_session_run(void *args) {
 
-    libnet_t *l;                                /* libnet context */
-    char libnet_errbuf[LIBNET_ERRBUF_SIZE];     /* libnet error buffer */
-    uint32_t src_ip;                            /* Local IP in binary form */
-    uint32_t dst_ip;                            /* Remote IP in binary form */
-    //char if_name[32];                           /* Local interface used on capturing */
-    struct bfd_ctrl_packet pkt;                 /* BFD control packet */
-    libnet_ptag_t udp_tag = 0, ip_tag = 0;      /* libnet tags */
-    int sockfd;                                 /* UDP socket file descriptor */
-    struct sockaddr_in sav4;                    /* IPv4 socket address */
-    //struct sockaddr_in6 sav6;                   /* IPv6 socket address */
-    char recv_buf[BFD_PKG_MIN_SIZE];            /* Buffer for received packet */
-    int ret;                                    /* Number of received bytes on socket */
-    struct bfd_ctrl_packet *bfdp;               /* Pointer to captured BFD packet */
-    uint32_t tx_jitter = 0;
-    uint32_t jitt_maxpercent = 0;
+    libnet_t *l;                                        /* libnet context */
+    char libnet_errbuf[LIBNET_ERRBUF_SIZE];             /* libnet error buffer */
+    uint32_t src_ipv4;                                  /* Local IPv4 in binary form */
+    uint32_t dst_ipv4;                                  /* Remote IPv4 in binary form */
+    struct libnet_in6_addr dst_ipv6;                    /* Remote IPv6 in binary form */
+    struct libnet_in6_addr src_ipv6;                    /* Local IPv6 in binary form */
+    //char if_name[32];                                 /* Local interface used on capturing */
+    struct bfd_ctrl_packet pkt;                         /* BFD control packet that we send */
+    libnet_ptag_t udp_tag = 0, ip_tag = 0;              /* libnet tags */
+    int sockfd;                                         /* UDP socket file descriptor */
+    struct sockaddr_in sav4;                            /* IPv4 socket address */
+    struct sockaddr_in6 sav6;                           /* IPv6 socket address */
+    char recv_buf[BFD_PKG_MIN_SIZE];                    /* Buffer for received packet */
+    int ret;                                            /* Number of received bytes on socket */
+    struct bfd_ctrl_packet *bfdp;                       /* Pointer to BFD packet received from remote peer */
+    //uint32_t tx_jitter = 0;
+    //uint32_t jitt_maxpercent = 0;
 
     struct bfd_timer tx_timer;
     struct sigevent tx_sev;
     struct itimerspec tx_ts;
     //struct itimerspec tx_remain;
-    int c;
+    //int c;
 
     /* Useful pointers */
     struct bfd_session_params *curr_params = (struct bfd_session_params *)args;
@@ -72,46 +74,66 @@ void *bfd_session_run(void *args) {
     curr_params->current_session = &new_session;
     struct bfd_session *curr_session = curr_params->current_session;
 
-    /* Init packet injection library */
-    l = libnet_init(
-            LIBNET_RAW4,                        /* injection type */
-            NULL,                               /* network interface */
-            libnet_errbuf);                     /* error buffer */
+    /* libnet init */
+    if (curr_params->is_ipv6 == true) {
+        l = libnet_init(
+            LIBNET_RAW6,                                /* injection type */
+            NULL,                                       /* network interface */
+            libnet_errbuf);                             /* error buffer */
 
-    if (l == NULL) {
-        fprintf(stderr, "libnet_init() failed: %s\n", libnet_errbuf);
-        libnet_destroy(l);
-        exit(EXIT_FAILURE);
+        if (l == NULL) {
+            fprintf(stderr, "libnet_init() failed: %s\n", libnet_errbuf);
+            libnet_destroy(l);
+            exit(EXIT_FAILURE);
+        }
+
+        src_ipv6 = libnet_name2addr6(l, curr_params->src_ip, LIBNET_DONT_RESOLVE);
+        if (strncmp((char *)&src_ipv6, (char *)&in6addr_error, sizeof(in6addr_error)) == 0) {
+            fprintf(stderr, "Bad source IPv6 address: %s\n", curr_params->src_ip);
+            libnet_destroy(l);
+            exit(EXIT_FAILURE);
+        }
+
+        dst_ipv6 = libnet_name2addr6(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE);
+        if (strncmp((char *)&dst_ipv6, (char *)&in6addr_error, sizeof(in6addr_error)) == 0) {
+            fprintf(stderr, "Bad destination IPv6 address: %s\n", curr_params->dst_ip);
+            libnet_destroy(l);
+            exit(EXIT_FAILURE);
+        }
+    }
+    else {
+        l = libnet_init(
+            LIBNET_RAW4,                                /* injection type */
+            NULL,                                       /* network interface */
+            libnet_errbuf);                             /* error buffer */
+
+        if (l == NULL) {
+            fprintf(stderr, "libnet_init() failed: %s\n", libnet_errbuf);
+            libnet_destroy(l);
+            exit(EXIT_FAILURE);
+        }
+
+        if ((src_ipv4 = libnet_name2addr4(l, curr_params->src_ip, LIBNET_DONT_RESOLVE)) == -1) {
+            fprintf(stderr, "Bad source IPv4 address: %s\n", curr_params->src_ip);
+            libnet_destroy(l);
+            exit(EXIT_FAILURE);
+        }
+
+        if ((dst_ipv4 = libnet_name2addr4(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE)) == -1) {
+            fprintf(stderr, "Bad destination IPv4 address: %s\n", curr_params->dst_ip);
+            libnet_destroy(l);
+            exit(EXIT_FAILURE);
+        }
     }
 
-    if ((src_ip = libnet_name2addr4(l, curr_params->src_ip, LIBNET_DONT_RESOLVE)) == -1) {
-        fprintf(stderr, "Bad source IP address: %s\n", curr_params->src_ip);
-        libnet_destroy(l);
-        exit(EXIT_FAILURE);
-    }
-
-    if ((dst_ip = libnet_name2addr4(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE)) == -1) {
-        fprintf(stderr, "Bad destination IP address: %s\n", curr_params->dst_ip);
-        libnet_destroy(l);
-        exit(EXIT_FAILURE);
-    }
-
+    /* Initialize timer data */
     tx_timer.sess_params = curr_params;
     tx_timer.pkt = &pkt;
     tx_timer.udp_tag = &udp_tag;
     tx_timer.l = l;
     tx_timer.tx_ts = &tx_ts;
 
-    /* We have valid IP addresses, so let's search for an interface */
-    /* TODO: should this also check if the link is UP or just if IP is assigned? */
-    /*if (search_device_by_ip(curr_params->src_ip, false, if_name) == -1) {
-        fprintf(stderr, "No interface was found with IP: %s\n", curr_params->src_ip);
-        exit(EXIT_FAILURE);
-    }*/
-
-    //pr_debug("Found device: %s, for IP: %s\n", if_name, curr_params->src_ip);
-
-    /* Seed random generator needed for local discriminator */
+    /* Seed random generator used for local discriminator */
     srandom((uint64_t)curr_params);
 
     /* Configure initial values for the new BFD session */
@@ -135,14 +157,14 @@ void *bfd_session_run(void *args) {
 
     /* Build UDP header */
     udp_tag = libnet_build_udp(
-        BFD_SRC_PORT_MIN,                                   /* Source port, TODO: needs to be unique for every session */
-        BFD_CTRL_PORT,                                      /* Destination port */
-        LIBNET_UDP_H + BFD_PKG_MIN_SIZE,                    /* Packet lenght */
-        0,                                                  /* Checksum */
-        (uint8_t *)&pkt,                                    /* Payload */
-        BFD_PKG_MIN_SIZE,                                   /* Payload size */
-        l,                                                  /* libnet handle */
-        udp_tag);                                           /* libnet tag */
+        BFD_SRC_PORT_MIN,                                       /* Source port, TODO: needs to be unique for every session */
+        BFD_CTRL_PORT,                                          /* Destination port */
+        LIBNET_UDP_H + BFD_PKG_MIN_SIZE,                        /* Packet lenght */
+        0,                                                      /* Checksum */
+        (uint8_t *)&pkt,                                        /* Payload */
+        BFD_PKG_MIN_SIZE,                                       /* Payload size */
+        l,                                                      /* libnet handle */
+        udp_tag);                                               /* libnet tag */
 
     if (udp_tag == -1) {
         fprintf(stderr, "Can't build UDP header: %s\n", libnet_geterror(l));
@@ -151,25 +173,47 @@ void *bfd_session_run(void *args) {
     }
 
     /* Build IP header */
-    ip_tag = libnet_build_ipv4(
-        LIBNET_IPV4_H + BFD_PKG_MIN_SIZE + LIBNET_UDP_H,    /* Packet length */
-        0,                                                  /* TOS */
-        0,                                                  /* IP ID */
-        0,                                                  /* IP fragmentation */
-        255,                                                /* TTL */
-        IPPROTO_UDP,                                        /* Upper layer protocol */
-        0,                                                  /* Checksum */
-        src_ip,                                             /* Source IP address */
-        dst_ip,                                             /* Destination IP address */
-        NULL,                                               /* Payload (filled at upper layer) */
-        0,                                                  /* Payload size */
-        l,                                                  /* libnet handle */
-        ip_tag);                                            /* libnet tag */
+    if (curr_params->is_ipv6 == true) {
+        ip_tag = libnet_build_ipv6(
+            0,                                                  /* Traffic class(DSCP + ECN) */
+            0,                                                  /* Flow label */
+            BFD_PKG_MIN_SIZE + LIBNET_UDP_H,                    /* Packet length */
+            IPPROTO_UDP,                                        /* Next header(type of first extension layer or protocol in upper layer) */
+            255,                                                /* Hop limit(kind of like TTL) */
+            src_ipv6,                                           /* Source IP address */
+            dst_ipv6,                                           /* Destination IP address */
+            NULL,                                               /* Payload (filled at upper layer) */
+            0,                                                  /* Payload size */
+            l,                                                  /* libnet handle */
+            ip_tag);                                            /* libnet tag */
+        
+        if (ip_tag == -1) {
+            fprintf(stderr, "Can't build IP header: %s\n", libnet_geterror(l));
+            libnet_destroy(l);
+            exit(EXIT_FAILURE);
+        }
+    }
+    else {
+        ip_tag = libnet_build_ipv4(
+            LIBNET_IPV4_H + BFD_PKG_MIN_SIZE + LIBNET_UDP_H,    /* Packet length */
+            0,                                                  /* TOS */
+            0,                                                  /* IP ID */
+            0,                                                  /* IP fragmentation */
+            255,                                                /* TTL */
+            IPPROTO_UDP,                                        /* Upper layer protocol */
+            0,                                                  /* Checksum */
+            src_ipv4,                                           /* Source IP address */
+            dst_ipv4,                                           /* Destination IP address */
+            NULL,                                               /* Payload (filled at upper layer) */
+            0,                                                  /* Payload size */
+            l,                                                  /* libnet handle */
+            ip_tag);                                            /* libnet tag */
     
-    if (ip_tag == -1) {
-        fprintf(stderr, "Can't build IP header: %s\n", libnet_geterror(l));
-        libnet_destroy(l);
-        exit(EXIT_FAILURE);
+        if (ip_tag == -1) {
+            fprintf(stderr, "Can't build IP header: %s\n", libnet_geterror(l));
+            libnet_destroy(l);
+            exit(EXIT_FAILURE);
+        }
     }
 
     /* Initial TX timer configuration, we start sending packets at min 1s as per the standard */
@@ -191,26 +235,47 @@ void *bfd_session_run(void *args) {
     }
 
     /* Create an UDP socket */
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
-        perror("socket");
-        exit(EXIT_FAILURE);
+    if (curr_params->is_ipv6 == true) {
+        if ((sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+            perror("socket");
+            exit(EXIT_FAILURE);
+        }
+    }
+    else {
+        if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+            perror("socket");
+            exit(EXIT_FAILURE);
+        }
     }
 
-    /* Bind it */
-    memset(&sav4, 0, sizeof(struct sockaddr_in));
-    sav4.sin_family = AF_INET;
-    inet_pton(sav4.sin_family, curr_params->src_ip, &(sav4.sin_addr));
-    sav4.sin_port = htons(BFD_CTRL_PORT);
+    /* Bind the socket */
+    if (curr_params->is_ipv6 == true) {
+        memset(&sav6, 0, sizeof(struct sockaddr_in));
+        sav6.sin6_family = AF_INET6;
+        inet_pton(sav6.sin6_family, curr_params->src_ip, &(sav6.sin6_addr));
+        sav6.sin6_port = htons(BFD_CTRL_PORT);
+
+        if (bind(sockfd, (struct sockaddr *)&sav6, sizeof(sav6)) == -1) {
+            perror("bind");
+            exit(EXIT_FAILURE);
+        }
+    }
+    else {
+        memset(&sav4, 0, sizeof(struct sockaddr_in));
+        sav4.sin_family = AF_INET;
+        inet_pton(sav4.sin_family, curr_params->src_ip, &(sav4.sin_addr));
+        sav4.sin_port = htons(BFD_CTRL_PORT);
     
-    if (bind(sockfd, (struct sockaddr *)&sav4, sizeof(sav4)) == -1) {
-       perror("bind");
-       exit(EXIT_FAILURE);
+        if (bind(sockfd, (struct sockaddr *)&sav4, sizeof(sav4)) == -1) {
+            perror("bind");
+            exit(EXIT_FAILURE);
+        }
     }
 
     /* Start sending packets */
     bfd_update_timer(curr_session->des_min_tx_interval, &tx_ts, &tx_timer);
 
-    /* Packet processing loop, where most of the magic happens */
+    /* Loop for processing incoming packets */
     while (true) {
         
         /* Check our socket for data */
@@ -382,7 +447,7 @@ void tx_timeout_handler(union sigval sv) {
     libnet_ptag_t *udp_tag = timer_data->udp_tag;
     libnet_t *l = timer_data->l;
     struct itimerspec *tx_ts = timer_data->tx_ts;
-    char t_now[100];
+    //char t_now[100];
 
     /* Update packet data */
     bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,
