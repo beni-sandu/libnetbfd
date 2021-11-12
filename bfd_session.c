@@ -154,10 +154,13 @@ void *bfd_session_run(void *args) {
     bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,
                 curr_params->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_session->des_min_tx_interval,
                 curr_session->req_min_rx_interval, &pkt);
+    
+    /* Get a unique source port for every session */
+    src_port++;
 
     /* Build UDP header */
     udp_tag = libnet_build_udp(
-        BFD_SRC_PORT_MIN,                                       /* Source port, TODO: needs to be unique for every session */
+        src_port,                                               /* Source port */
         BFD_CTRL_PORT,                                          /* Destination port */
         LIBNET_UDP_H + BFD_PKG_MIN_SIZE,                        /* Packet lenght */
         0,                                                      /* Checksum */

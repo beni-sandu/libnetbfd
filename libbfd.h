@@ -1,4 +1,8 @@
 #include <libnet.h>
+#ifdef __STDC_NO_ATOMICS__
+# error this implementation needs atomics
+#endif
+#include <stdatomic.h>
 
 #include "bfd_packet.h"
 
@@ -9,6 +13,8 @@
 #else
 #define pr_debug(...)
 #endif
+
+static atomic_ulong src_port = BFD_SRC_PORT_MIN;
 
 #define max(a, b) \
    ({ __typeof__ (a) _a = (a); \
@@ -30,7 +36,7 @@ struct bfd_timer {
 static inline void bfd_build_udp(struct bfd_ctrl_packet *pkt, libnet_ptag_t *udp_tag, libnet_t *l) {
     
     *udp_tag = libnet_build_udp(
-        BFD_SRC_PORT_MIN,                                   /* Source port, TODO: needs to be unique for every session */
+        src_port,                                           /* Source port */
         BFD_CTRL_PORT,                                      /* Destination port */
         LIBNET_UDP_H + BFD_PKG_MIN_SIZE,                    /* Packet lenght */
         0,                                                  /* Checksum */

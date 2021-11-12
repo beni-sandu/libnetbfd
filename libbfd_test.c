@@ -30,15 +30,13 @@ int main(void) {
         .src_ip = "fec0:0:0:f101::1",
     };
 
-    //s1 = bfd_session_start(&s1_params);
+    s1 = bfd_session_start(&s1_params);
     s2 = bfd_session_start(&s2_params);
 
-/*
     if (s1 > 0)
         printf("BFD session started successfully, local IP: %s, remote IP: %s, session id: %ld\n", s1_params.src_ip, s1_params.dst_ip, s1);
     else
         printf("Error starting BFD session for IP: %s\n", s1_params.src_ip);
-*/
 
     if (s2 > 0)
         printf("BFD session started successfully, local IP: %s, remote IP: %s, session id: %ld\n", s2_params.src_ip, s2_params.dst_ip, s2);
@@ -48,4 +46,5 @@ int main(void) {
     sleep(60);
 
     bfd_session_stop(s1);
+    bfd_session_stop(s2);
 }
