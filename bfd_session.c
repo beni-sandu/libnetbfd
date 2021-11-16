@@ -275,7 +275,7 @@ void *bfd_session_run(void *args) {
 
     /* Bind the socket */
     if (curr_params->is_ipv6 == true) {
-        memset(&sav6, 0, sizeof(struct sockaddr_in));
+        memset(&sav6, 0, sizeof(struct sockaddr_in6));
         sav6.sin6_family = AF_INET6;
         inet_pton(sav6.sin6_family, curr_params->src_ip, &(sav6.sin6_addr));
         sav6.sin6_port = htons(BFD_CTRL_PORT);
