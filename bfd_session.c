@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <time.h>
 #include <poll.h>
+#include <sys/capability.h>
 
 #include "bfd_packet.h"
 #include "bfd_session.h"
@@ -59,6 +60,8 @@ void *bfd_session_run(void *args) {
     char recv_buf[BFD_PKG_MIN_SIZE];                    /* Buffer for received packet */
     int ret;                                            /* Number of received bytes on socket */
     struct bfd_ctrl_packet *bfdp;                       /* Pointer to BFD packet received from remote peer */
+    cap_t caps;
+    cap_flag_value_t cap_val;
     //uint32_t tx_jitter = 0;
     //uint32_t jitt_maxpercent = 0;
 
@@ -73,6 +76,25 @@ void *bfd_session_run(void *args) {
     struct bfd_session new_session;
     curr_params->current_session = &new_session;
     struct bfd_session *curr_session = curr_params->current_session;
+
+    /* Check for CAP_NET_RAW capability */
+    caps = cap_get_proc();
+    if (caps == NULL) {
+        perror("cap_get_proc");
+        exit(EXIT_FAILURE);
+    }
+
+    if (cap_get_flag(caps, CAP_NET_RAW, CAP_EFFECTIVE, &cap_val) == -1) {
+        perror("cap_get_flag");
+        exit(EXIT_FAILURE);
+    }
+
+    if (cap_val != CAP_SET) {
+        fprintf(stderr, "Execution requires CAP_NET_RAW capability.\n");
+        exit(EXIT_FAILURE);
+    }
+
+    cap_free(caps);
 
     /* libnet init */
     if (curr_params->is_ipv6 == true) {
