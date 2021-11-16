@@ -14,6 +14,7 @@
 
 /* Forward declarations */
 void tx_timeout_handler(union sigval sv);
+void thread_cleanup(void *args);
 
 int recvfrom_ppoll(int sockfd, char *recv_buf, int buf_size, int timeout_us) {
 
@@ -79,6 +80,15 @@ void *bfd_session_run(void *args) {
     curr_params->current_session = &new_session;
     struct bfd_session *curr_session = curr_params->current_session;
 
+    /* Initialize timer data */
+    tx_timer.sess_params = curr_params;
+    tx_timer.pkt = &pkt;
+    tx_timer.udp_tag = &udp_tag;
+    tx_timer.tx_ts = &tx_ts;
+    tx_timer.timer_id = NULL;
+
+    pthread_cleanup_push(thread_cleanup, (void*)&tx_timer);
+
     /* Check for CAP_NET_RAW capability */
     caps = cap_get_proc();
     if (caps == NULL) {
@@ -102,6 +112,9 @@ void *bfd_session_run(void *args) {
         sem_post(&current_thread->sem);
         pthread_exit(NULL);
     }
+
+    /* We don't need this anymore, so clean it */
+    cap_free(caps);
 
     /* libnet init */
     if (curr_params->is_ipv6 == true) {
@@ -161,12 +174,8 @@ void *bfd_session_run(void *args) {
         }
     }
 
-    /* Initialize timer data */
-    tx_timer.sess_params = curr_params;
-    tx_timer.pkt = &pkt;
-    tx_timer.udp_tag = &udp_tag;
+    /* Copy libnet pointer */
     tx_timer.l = l;
-    tx_timer.tx_ts = &tx_ts;
 
     /* Seed random generator used for local discriminator */
     srandom((uint64_t)curr_params);
@@ -455,6 +464,8 @@ void *bfd_session_run(void *args) {
         } //if (ret > 0)
     } // while (true)
 
+    pthread_cleanup_pop(0);
+
     /* Should never reach this point */
     return NULL;
 }
@@ -537,4 +548,19 @@ void tx_timeout_handler(union sigval sv) {
     tx_jitter = (curr_session->des_min_tx_interval * (75 + ((uint32_t) random() % jitt_maxpercent))) / 100;
     //pr_debug("curr_percent: %d, max_percent: %d, tx_jitt: %d\n", curr_percent, jitt_maxpercent, tx_jitter);
     bfd_update_timer(tx_jitter, tx_ts, timer_data);
+}
+
+void thread_cleanup(void *args) {
+    
+    struct bfd_timer *timer = (struct bfd_timer *)args;
+
+    pr_debug("Thread cleanup handler called for session: %s.\n", timer->sess_params->src_ip);
+    pr_debug("timer: %p, libnet: %p\n", timer->timer_id, timer->l);
+
+    /* Cleanup allocated data */
+    if (timer->timer_id != NULL)
+        timer_delete(timer->timer_id);
+    
+    if (timer->l != NULL)
+        libnet_destroy(timer->l);
 }
