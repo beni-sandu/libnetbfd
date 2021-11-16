@@ -68,7 +68,7 @@ struct bfd_session {
 };
 
 /* Add a typedef for a BFD session ID */
-typedef unsigned long int bfd_session_id;
+typedef long int bfd_session_id;
 
 /* Function prototypes */
 bfd_session_id bfd_session_start(struct bfd_session_params *params);

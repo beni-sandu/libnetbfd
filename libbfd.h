@@ -3,6 +3,8 @@
 # error this implementation needs atomics
 #endif
 #include <stdatomic.h>
+#include <semaphore.h>
+#include <pthread.h>
 
 #include "bfd_packet.h"
 
@@ -20,6 +22,12 @@ static atomic_ulong src_port = BFD_SRC_PORT_MIN;
    ({ __typeof__ (a) _a = (a); \
        __typeof__ (b) _b = (b); \
      _a > _b ? _a : _b; })
+
+struct bfd_thread {
+    sem_t sem;
+    struct bfd_session_params *session_params;
+    int ret;
+};
 
 /* Data passed to per thread timer */
 struct bfd_timer {
@@ -47,8 +55,7 @@ static inline void bfd_build_udp(struct bfd_ctrl_packet *pkt, libnet_ptag_t *udp
 
     if (*udp_tag == -1) {
         fprintf(stderr, "Can't build UDP header: %s\n", libnet_geterror(l));
-        libnet_destroy(l);
-        exit(EXIT_FAILURE);
+        pthread_exit(NULL);
     }
 }
 

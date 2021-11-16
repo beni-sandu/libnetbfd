@@ -72,7 +72,9 @@ void *bfd_session_run(void *args) {
     //int c;
 
     /* Useful pointers */
-    struct bfd_session_params *curr_params = (struct bfd_session_params *)args;
+    struct bfd_thread *current_thread = (struct bfd_thread *)args;
+    //struct bfd_session_params *curr_params = (struct bfd_session_params *)args;
+    struct bfd_session_params *curr_params = current_thread->session_params;
     struct bfd_session new_session;
     curr_params->current_session = &new_session;
     struct bfd_session *curr_session = curr_params->current_session;
@@ -81,20 +83,25 @@ void *bfd_session_run(void *args) {
     caps = cap_get_proc();
     if (caps == NULL) {
         perror("cap_get_proc");
-        exit(EXIT_FAILURE);
+        current_thread->ret = -1;
+        sem_post(&current_thread->sem);
+        pthread_exit(NULL);
     }
 
     if (cap_get_flag(caps, CAP_NET_RAW, CAP_EFFECTIVE, &cap_val) == -1) {
-        perror("cap_get_flag");
-        exit(EXIT_FAILURE);
+        cap_free(caps);
+        current_thread->ret = -1;
+        sem_post(&current_thread->sem);
+        pthread_exit(NULL);
     }
 
     if (cap_val != CAP_SET) {
+        cap_free(caps);
         fprintf(stderr, "Execution requires CAP_NET_RAW capability.\n");
-        exit(EXIT_FAILURE);
+        current_thread->ret = -1;
+        sem_post(&current_thread->sem);
+        pthread_exit(NULL);
     }
-
-    cap_free(caps);
 
     /* libnet init */
     if (curr_params->is_ipv6 == true) {
@@ -105,22 +112,25 @@ void *bfd_session_run(void *args) {
 
         if (l == NULL) {
             fprintf(stderr, "libnet_init() failed: %s\n", libnet_errbuf);
-            libnet_destroy(l);
-            exit(EXIT_FAILURE);
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
         }
 
         src_ipv6 = libnet_name2addr6(l, curr_params->src_ip, LIBNET_DONT_RESOLVE);
         if (strncmp((char *)&src_ipv6, (char *)&in6addr_error, sizeof(in6addr_error)) == 0) {
             fprintf(stderr, "Bad source IPv6 address: %s\n", curr_params->src_ip);
-            libnet_destroy(l);
-            exit(EXIT_FAILURE);
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
         }
 
         dst_ipv6 = libnet_name2addr6(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE);
         if (strncmp((char *)&dst_ipv6, (char *)&in6addr_error, sizeof(in6addr_error)) == 0) {
             fprintf(stderr, "Bad destination IPv6 address: %s\n", curr_params->dst_ip);
-            libnet_destroy(l);
-            exit(EXIT_FAILURE);
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
         }
     }
     else {
@@ -131,20 +141,23 @@ void *bfd_session_run(void *args) {
 
         if (l == NULL) {
             fprintf(stderr, "libnet_init() failed: %s\n", libnet_errbuf);
-            libnet_destroy(l);
-            exit(EXIT_FAILURE);
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
         }
 
         if ((src_ipv4 = libnet_name2addr4(l, curr_params->src_ip, LIBNET_DONT_RESOLVE)) == -1) {
             fprintf(stderr, "Bad source IPv4 address: %s\n", curr_params->src_ip);
-            libnet_destroy(l);
-            exit(EXIT_FAILURE);
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
         }
 
         if ((dst_ipv4 = libnet_name2addr4(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE)) == -1) {
             fprintf(stderr, "Bad destination IPv4 address: %s\n", curr_params->dst_ip);
-            libnet_destroy(l);
-            exit(EXIT_FAILURE);
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
         }
     }
 
@@ -193,8 +206,9 @@ void *bfd_session_run(void *args) {
 
     if (udp_tag == -1) {
         fprintf(stderr, "Can't build UDP header: %s\n", libnet_geterror(l));
-        libnet_destroy(l);
-        exit(EXIT_FAILURE);
+        current_thread->ret = -1;
+        sem_post(&current_thread->sem);
+        pthread_exit(NULL);
     }
 
     /* Build IP header */
@@ -214,8 +228,9 @@ void *bfd_session_run(void *args) {
         
         if (ip_tag == -1) {
             fprintf(stderr, "Can't build IP header: %s\n", libnet_geterror(l));
-            libnet_destroy(l);
-            exit(EXIT_FAILURE);
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
         }
     }
     else {
@@ -236,8 +251,9 @@ void *bfd_session_run(void *args) {
     
         if (ip_tag == -1) {
             fprintf(stderr, "Can't build IP header: %s\n", libnet_geterror(l));
-            libnet_destroy(l);
-            exit(EXIT_FAILURE);
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
         }
     }
 
@@ -256,20 +272,26 @@ void *bfd_session_run(void *args) {
     /* Create TX timer */
     if (timer_create(CLOCK_REALTIME, &tx_sev, &tx_timer.timer_id) == -1) {
         perror("timer_create");
-        exit(EXIT_FAILURE);
+        current_thread->ret = -1;
+        sem_post(&current_thread->sem);
+        pthread_exit(NULL);
     }
 
     /* Create an UDP socket */
     if (curr_params->is_ipv6 == true) {
         if ((sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
             perror("socket");
-            exit(EXIT_FAILURE);
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
         }
     }
     else {
         if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
             perror("socket");
-            exit(EXIT_FAILURE);
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
         }
     }
 
@@ -282,7 +304,9 @@ void *bfd_session_run(void *args) {
 
         if (bind(sockfd, (struct sockaddr *)&sav6, sizeof(sav6)) == -1) {
             perror("bind");
-            exit(EXIT_FAILURE);
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
         }
     }
     else {
@@ -293,9 +317,14 @@ void *bfd_session_run(void *args) {
     
         if (bind(sockfd, (struct sockaddr *)&sav4, sizeof(sav4)) == -1) {
             perror("bind");
-            exit(EXIT_FAILURE);
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
         }
     }
+
+    /* Initial session configuration is successful, start sending/receiving packets */
+    sem_post(&current_thread->sem);
 
     /* Start sending packets */
     bfd_update_timer(curr_session->des_min_tx_interval, &tx_ts, &tx_timer);
@@ -426,8 +455,7 @@ void *bfd_session_run(void *args) {
         } //if (ret > 0)
     } // while (true)
 
-    libnet_destroy(l);
-
+    /* Should never reach this point */
     return NULL;
 }
 
@@ -439,13 +467,24 @@ bfd_session_id bfd_session_start(struct bfd_session_params *params) {
     
     pthread_t session_id;
     int ret;
+    struct bfd_thread new_thread;
 
-    ret = pthread_create(&session_id, NULL, bfd_session_run, (void *)params);
+    new_thread.session_params = params;
+    new_thread.ret = 0;
+
+    sem_init(&new_thread.sem, 0, 0);
+
+    ret = pthread_create(&session_id, NULL, bfd_session_run, (void *)&new_thread);
 
     if (ret) {
-        fprintf(stderr, "bfd_session_create failed, err: %d\n", ret);
+        fprintf(stderr, "bfd_session_create for IP: %s failed, err: %d\n", params->src_ip, ret);
         return -1;
     }
+
+    sem_wait(&new_thread.sem);
+
+    if (new_thread.ret != 0)
+        return new_thread.ret;
 
     return session_id;
 }
@@ -487,8 +526,7 @@ void tx_timeout_handler(union sigval sv) {
 
     if (c == -1) {
         fprintf(stderr, "Write error: %s\n", libnet_geterror(l));
-        libnet_destroy(l);
-        exit(EXIT_FAILURE);
+        pthread_exit(NULL);
     }
     //else
     //    pr_debug("--->[%s] Sent BFD packet: tx_intrvl = %d, state = %s\n", get_time(t_now), curr_session->des_min_tx_interval, state2string(curr_session->local_state));
