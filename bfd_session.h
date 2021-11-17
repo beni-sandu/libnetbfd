@@ -39,6 +39,7 @@ struct bfd_session_params {
     uint32_t detect_mult;                   /* Detection multiplier for current session, BFD specific */
     void (*callback)(void);                 /* Callback for different state changes? */
     struct bfd_session *current_session;    /* Pointer to current BFD session */
+    uint8_t dscp;                           /* IP differentiated services code point */
 };
 
 /* 

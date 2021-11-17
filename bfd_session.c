@@ -223,7 +223,7 @@ void *bfd_session_run(void *args) {
     /* Build IP header */
     if (curr_params->is_ipv6 == true) {
         ip_tag = libnet_build_ipv6(
-            0,                                                  /* Traffic class(DSCP + ECN) */
+            (curr_params->dscp << 2) & 0xFC,                    /* DSCP */
             0,                                                  /* Flow label */
             BFD_PKG_MIN_SIZE + LIBNET_UDP_H,                    /* Packet length */
             IPPROTO_UDP,                                        /* Next header(type of first extension layer or protocol in upper layer) */
@@ -245,7 +245,7 @@ void *bfd_session_run(void *args) {
     else {
         ip_tag = libnet_build_ipv4(
             LIBNET_IPV4_H + BFD_PKG_MIN_SIZE + LIBNET_UDP_H,    /* Packet length */
-            0,                                                  /* TOS */
+            (curr_params->dscp << 2) & 0xFC,                    /* DSCP */
             0,                                                  /* IP ID */
             0,                                                  /* IP fragmentation */
             255,                                                /* TTL */

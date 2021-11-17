@@ -18,6 +18,7 @@ int main(void) {
         .is_ipv6 = false,
         .req_min_rx_interval = 1000000,   //in us
         .src_ip = "192.168.1.1",
+        .dscp = 8, //Low-priority data (CS1)
     };
 
     struct bfd_session_params s2_params = {
@@ -28,6 +29,7 @@ int main(void) {
         .is_ipv6 = true,
         .req_min_rx_interval = 1000000,   //in us
         .src_ip = "fec0:0:0:f101::1",
+        .dscp = 16, //OAM (CS2)
     };
 
     s1 = bfd_session_start(&s1_params);
