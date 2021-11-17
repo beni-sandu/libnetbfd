@@ -193,8 +193,8 @@ void *bfd_session_run(void *args) {
     srandom((uint64_t)curr_params);
 
     /* Configure initial values for the new BFD session */
-    //curr_session->des_min_tx_interval = (curr_params->des_min_tx_interval < 1000000) ? 1000000 : curr_params->des_min_tx_interval;
-    curr_session->des_min_tx_interval = 1000000;
+    curr_session->des_min_tx_interval = curr_params->des_min_tx_interval;
+    curr_session->op_tx = (curr_params->des_min_tx_interval < 1000000) ? 1000000 : curr_params->des_min_tx_interval;
     curr_session->local_diag = BFD_DIAG_NODIAG;
     curr_session->local_discr = (uint32_t)(random());
     curr_session->local_state = BFD_STATE_DOWN;
@@ -347,8 +347,8 @@ void *bfd_session_run(void *args) {
     /* Initial session configuration is successful, start sending/receiving packets */
     sem_post(&current_thread->sem);
 
-    /* Start sending packets */
-    bfd_update_timer(curr_session->des_min_tx_interval, &tx_ts, &tx_timer);
+    /* Start sending packets at Desired min TX interval */
+    bfd_update_timer(curr_session->op_tx, &tx_ts, &tx_timer);
 
     /* Loop for processing incoming packets */
     while (true) {
@@ -430,8 +430,8 @@ void *bfd_session_run(void *args) {
             curr_session->remote_detect_mult = bfdp->detect_mult;
             curr_session->remote_des_min_tx_interval = ntohl(bfdp->des_min_tx_interval);
 
-            /* Update the transmit interval as per section 6.8.2 */
-            curr_session->des_min_tx_interval = max(curr_params->des_min_tx_interval, curr_session->remote_min_rx_interval);
+            /* Update the operational transmit interval as per section 6.8.2 */
+            curr_session->op_tx = max(curr_params->des_min_tx_interval, curr_session->remote_min_rx_interval);
 
             /* Update the Detection Time as per section 6.8.4 */
             curr_session->detection_time = curr_session->remote_detect_mult * curr_session->remote_des_min_tx_interval;
@@ -581,7 +581,7 @@ void tx_timeout_handler(union sigval sv) {
     /* Apply jitter to TX transmit interval as per section 6.8.7 and start the timer for the next packet */
     jitt_maxpercent = (curr_params->detect_mult == 1) ? 15 : 25;
     //uint32_t curr_percent = ((uint32_t) random() % jitt_maxpercent);
-    tx_jitter = (curr_session->des_min_tx_interval * (75 + ((uint32_t) random() % jitt_maxpercent))) / 100;
+    tx_jitter = (curr_session->op_tx * (75 + ((uint32_t) random() % jitt_maxpercent))) / 100;
     //pr_debug("curr_percent: %d, max_percent: %d, tx_jitt: %d\n", curr_percent, jitt_maxpercent, tx_jitter);
     bfd_update_timer(tx_jitter, tx_ts, timer_data);
 }

@@ -67,6 +67,7 @@ struct bfd_session {
     uint32_t remote_min_rx_interval;
     uint32_t detection_time;
     uint32_t remote_detect_mult;
+    uint32_t op_tx;
     bool local_poll;
     bool local_final;
     bool remote_poll;
