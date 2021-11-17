@@ -4,7 +4,33 @@
 #include <unistd.h>
 #include "bfd_session.h"
 
-void bfd_callback() {}
+void bfd_callback(struct cb_status *status) {
+    /*
+     *  1 - Session detected the remote peer going DOWN (detection time expired)
+     *  2 - Session is going to INIT
+     *  3 - Session is going to UP
+     *  4 - Remote signaled going DOWN
+     *  5 - Remote signaled going ADMIN_DOWN
+     */
+
+    switch (status->cb_ret) {
+        case 1:
+            printf("Detected BFD remote [%s] going DOWN\n", status->session_params->dst_ip);
+            break;
+        case 2:
+            printf("Session [%s <--> %s] going to INIT.\n", status->session_params->src_ip, status->session_params->dst_ip);
+            break;
+        case 3:
+            printf("Session [%s <--> %s] going to UP.\n", status->session_params->src_ip, status->session_params->dst_ip);
+            break;
+        case 4:
+            printf("Remote [%s] signaled going DOWN\n", status->session_params->dst_ip);
+            break;
+        case 5:
+            printf("Remote [%s] signaled going ADMIN_DOWN\n", status->session_params->dst_ip);
+            break;
+    }
+}
 
 int main(void) {
     

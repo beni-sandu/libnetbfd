@@ -63,6 +63,7 @@ void *bfd_session_run(void *args) {
     struct bfd_ctrl_packet *bfdp;                       /* Pointer to BFD packet received from remote peer */
     cap_t caps;
     cap_flag_value_t cap_val;
+    struct cb_status callback_status;
     //uint32_t tx_jitter = 0;
     //uint32_t jitt_maxpercent = 0;
 
@@ -86,6 +87,17 @@ void *bfd_session_run(void *args) {
     tx_timer.udp_tag = &udp_tag;
     tx_timer.tx_ts = &tx_ts;
     tx_timer.timer_id = NULL;
+
+    /*
+     * Define some callback return codes here to cover cases that we're interested in (can be adjusted later if needed):
+     *  1 - Session detected the remote peer going DOWN (detection time expired)
+     *  2 - Session is going to INIT
+     *  3 - Session is going to UP
+     *  4 - Remote signaled going DOWN
+     *  5 - Remote signaled going ADMIN_DOWN
+     */
+    callback_status.cb_ret = 0;
+    callback_status.session_params = curr_params;
 
     pthread_cleanup_push(thread_cleanup, (void*)&tx_timer);
 
@@ -351,7 +363,11 @@ void *bfd_session_run(void *args) {
             if (curr_session->local_state == BFD_STATE_UP) {
                 curr_session->local_state = BFD_STATE_DOWN;
                 curr_session->local_diag = BFD_DIAG_CTRL_DETECT_TIME_EXPIRED;
-                pr_debug("Detected BFD remote %s going DOWN.\n", curr_params->dst_ip);
+                //pr_debug("Detected BFD remote %s going DOWN.\n", curr_params->dst_ip);
+                if (curr_params->callback != NULL) {
+                    callback_status.cb_ret = 1;
+                    curr_params->callback(&callback_status);
+                }
             }
         }
 
@@ -432,31 +448,51 @@ void *bfd_session_run(void *args) {
                 if (curr_session->local_state != BFD_STATE_DOWN) {
                     curr_session->local_diag = BFD_DIAG_NEIGH_SIGNL_SESS_DOWN;
                     curr_session->local_state = BFD_STATE_DOWN;
-                    pr_debug("BFD remote: %s signaled going ADMIN_DOWN.\n", curr_params->dst_ip);
+                    //pr_debug("BFD remote: %s signaled going ADMIN_DOWN.\n", curr_params->dst_ip);
+                    if (curr_params->callback != NULL) {
+                        callback_status.cb_ret = 5;
+                        curr_params->callback(&callback_status);
+                    }
                 }
             }
             else {
                 if (curr_session->local_state == BFD_STATE_DOWN) {
                     if (curr_session->remote_state == BFD_STATE_DOWN) {
                         curr_session->local_state = BFD_STATE_INIT;
-                        pr_debug("BFD session: %s going to INIT.\n", curr_params->src_ip);
+                        //pr_debug("BFD session: %s going to INIT.\n", curr_params->src_ip);
+                        if (curr_params->callback != NULL) {
+                            callback_status.cb_ret = 2;
+                            curr_params->callback(&callback_status);
+                        }
                     }
                     else if (curr_session->remote_state == BFD_STATE_INIT) {
                         curr_session->local_state = BFD_STATE_UP;
-                        pr_debug("BFD session: %s going to UP.\n", curr_params->src_ip);
+                        //pr_debug("BFD session: %s going to UP.\n", curr_params->src_ip);
+                        if (curr_params->callback != NULL) {
+                            callback_status.cb_ret = 3;
+                            curr_params->callback(&callback_status);
+                        }
                     }
                 }
                 else if (curr_session->local_state == BFD_STATE_INIT) {
                         if (curr_session->remote_state == BFD_STATE_INIT || curr_session->remote_state == BFD_STATE_UP) {
                             curr_session->local_state = BFD_STATE_UP;
-                            pr_debug("BFD session: %s going to UP.\n", curr_params->src_ip);
+                            //pr_debug("BFD session: %s going to UP.\n", curr_params->src_ip);
+                            if (curr_params->callback != NULL) {
+                                callback_status.cb_ret = 3;
+                                curr_params->callback(&callback_status);
+                            }
                         }
                     }
                 else {   //curr_session->local_state = BFD_STATE_UP
                     if (curr_session->remote_state == BFD_STATE_DOWN) {
                         curr_session->local_diag = BFD_DIAG_NEIGH_SIGNL_SESS_DOWN;
                         curr_session->local_state = BFD_STATE_DOWN;
-                        pr_debug("BFD remote: %s signaled going DOWN.\n", curr_params->dst_ip);
+                        //pr_debug("BFD remote: %s signaled going DOWN.\n", curr_params->dst_ip);
+                        if (curr_params->callback != NULL) {
+                                callback_status.cb_ret = 4;
+                                curr_params->callback(&callback_status);
+                        }
                     }
                 }
             }

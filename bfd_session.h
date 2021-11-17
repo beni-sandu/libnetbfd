@@ -29,17 +29,22 @@ enum bfd_state {
     BFD_STATE_UP                        = 3
 };
 
+struct cb_status {
+    int cb_ret;                                             /* Callback return value */
+    struct bfd_session_params *session_params;              /* Pointer to current session parameters */
+};
+
 /* Parameters for a new BFD session */
 struct bfd_session_params {
-    char *src_ip;                           /* Source IP in string format (IPv4/IPv6) */
-    char *dst_ip;                           /* Destination IP in string format (IPv4/IPv6) */
-    bool is_ipv6;                           /* Flag to select type of IP session */
-    uint32_t des_min_tx_interval;           /* Desired min TX interval for current session, BFD specific */
-    uint32_t req_min_rx_interval;           /* Required min RX interval for current session, BFD specific */
-    uint32_t detect_mult;                   /* Detection multiplier for current session, BFD specific */
-    void (*callback)(void);                 /* Callback for different state changes? */
-    struct bfd_session *current_session;    /* Pointer to current BFD session */
-    uint8_t dscp;                           /* IP differentiated services code point */
+    char *src_ip;                                           /* Source IP in string format (IPv4/IPv6) */
+    char *dst_ip;                                           /* Destination IP in string format (IPv4/IPv6) */
+    bool is_ipv6;                                           /* Flag to select type of IP session */
+    uint32_t des_min_tx_interval;                           /* Desired min TX interval for current session, BFD specific */
+    uint32_t req_min_rx_interval;                           /* Required min RX interval for current session, BFD specific */
+    uint32_t detect_mult;                                   /* Detection multiplier for current session, BFD specific */
+    void (*callback)(struct cb_status *status);             /* Session callback */
+    struct bfd_session *current_session;                    /* Pointer to current BFD session */
+    uint8_t dscp;                                           /* IP differentiated services code point */
 };
 
 /* 
