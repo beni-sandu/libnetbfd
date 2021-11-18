@@ -64,6 +64,8 @@ void *bfd_session_run(void *args) {
     cap_t caps;
     cap_flag_value_t cap_val;
     struct cb_status callback_status;
+    int ns_fd;
+    char ns_buf[MAX_PATH] = "/run/netns/";
     //uint32_t tx_jitter = 0;
     //uint32_t jitt_maxpercent = 0;
 
@@ -127,6 +129,30 @@ void *bfd_session_run(void *args) {
 
     /* We don't need this anymore, so clean it */
     cap_free(caps);
+
+    /* Configure network namespace */
+    if (strlen(curr_params->net_ns) != 0) {
+        strcat(ns_buf, curr_params->net_ns);
+
+        ns_fd = open(ns_buf, O_RDONLY);
+
+        if (ns_fd == -1) {
+            perror("open ns fd");
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
+        }
+
+        if (setns(ns_fd, CLONE_NEWNET) == -1) {
+            perror("set ns");
+            close(ns_fd);
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
+        }
+
+        close(ns_fd);
+    }
 
     /* libnet init */
     if (curr_params->is_ipv6 == true) {

@@ -10,6 +10,9 @@
 #define BFD_SRC_PORT_MIN    49152
 #define BFD_SRC_PORT_MAX    65535
 
+#define NET_NS_SIZE 32
+#define MAX_PATH 512
+
 enum bfd_diag {
     BFD_DIAG_NODIAG                     = 0,
     BFD_DIAG_CTRL_DETECT_TIME_EXPIRED   = 1,
@@ -45,6 +48,7 @@ struct bfd_session_params {
     void (*callback)(struct cb_status *status);             /* Session callback */
     struct bfd_session *current_session;                    /* Pointer to current BFD session */
     uint8_t dscp;                                           /* IP differentiated services code point */
+    char net_ns[NET_NS_SIZE];                               /* Network namespace name */
 };
 
 /* 
