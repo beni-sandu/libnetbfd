@@ -14,6 +14,37 @@
 #include "bfd_session.h"
 
 
+void bfd_session_modify(struct bfd_session_params *session, enum bfd_modify_cmd cmd,
+    uint32_t des_min_tx_interval, uint32_t req_min_rx_interval) {
+
+    switch (cmd) {
+        case SESSION_ENABLE_ADMIN_DOWN:
+            if (session->current_session->local_state != BFD_STATE_ADMIN_DOWN) {
+                pr_debug("Putting session [%s <--> %s] into ADMIN_DOWN\n", session->src_ip, session->dst_ip);
+                session->current_session->local_state = BFD_STATE_ADMIN_DOWN;
+            }
+            else
+                pr_debug("Session [%s <--> %s] is already in ADMIN_DOWN, skipping.\n", session->src_ip, session->dst_ip);
+            break;
+
+        case SESSION_DISABLE_ADMIN_DOWN:
+            if (session->current_session->local_state == BFD_STATE_ADMIN_DOWN) {
+                pr_debug("Getting session [%s <--> %s] out of ADMIN_DOWN\n", session->src_ip, session->dst_ip);
+                session->current_session->local_state = BFD_STATE_DOWN;
+            }
+            else
+                pr_debug("Session [%s <--> %s] was not in ADMIN_DOWN, skipping.\n", session->src_ip, session->dst_ip);
+            break;
+
+        case SESSION_CHANGE_PARAMS:
+            break;
+        
+        default:
+            pr_debug("Invalid bfd_session_modify command.\n");
+            break;
+    }
+}
+
 /* 
  * Search a device on the local system, given an IP address as input.
  *

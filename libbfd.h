@@ -29,6 +29,12 @@ struct bfd_thread {
     int ret;
 };
 
+enum bfd_modify_cmd {
+    SESSION_ENABLE_ADMIN_DOWN       = 0,
+    SESSION_DISABLE_ADMIN_DOWN      = 1,
+    SESSION_CHANGE_PARAMS           = 2
+};
+
 /* Data passed to per thread timer */
 struct bfd_timer {
     timer_t timer_id;                                       /* POSIX interval timer id */
@@ -65,3 +71,5 @@ int bfd_start_tx_timer(struct bfd_timer *timer_data, struct itimerspec *ts);
 int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *btimer);
 char *state2string(enum bfd_state state);
 char *get_time(char *t_now);
+void bfd_session_modify(struct bfd_session_params *session, enum bfd_modify_cmd cmd,
+    uint32_t des_min_tx_interval, uint32_t req_min_rx_interval);

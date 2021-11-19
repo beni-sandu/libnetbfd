@@ -466,7 +466,7 @@ void *bfd_session_run(void *args) {
 
             /* BFD state machine logic */
             if (curr_session->local_state == BFD_STATE_ADMIN_DOWN) {
-                pr_debug("Got BFD packet from: %s while in ADMIN_DOWN.\n", curr_params->dst_ip);
+                //pr_debug("Got BFD packet from: %s while in ADMIN_DOWN.\n", curr_params->dst_ip);
                 continue;
             }
 

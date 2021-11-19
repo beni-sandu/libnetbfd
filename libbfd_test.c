@@ -2,7 +2,9 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
+
 #include "bfd_session.h"
+#include "libbfd.h"
 
 void bfd_callback(struct cb_status *status) {
     /*
@@ -34,7 +36,7 @@ void bfd_callback(struct cb_status *status) {
 
 int main(void) {
     
-    bfd_session_id s1, s2;
+    bfd_session_id s1 = 0, s2 = 0;
 
     struct bfd_session_params s1_params = {
         .callback = &bfd_callback,
@@ -71,8 +73,15 @@ int main(void) {
     else
         printf("Error starting BFD session for IP: %s\n", s2_params.src_ip);
     
-    sleep(60);
+    /* Wait 5s, put session s1 into ADMIN_DOWN */
+    sleep(5);
+    bfd_session_modify(&s1_params, SESSION_ENABLE_ADMIN_DOWN, 0, 0);
 
+    /* After another 5s, get s1 out of ADMIN_DOWN */
+    sleep(5);
+    bfd_session_modify(&s1_params, SESSION_DISABLE_ADMIN_DOWN, 0, 0);
+
+    sleep(30);
     bfd_session_stop(s1);
     bfd_session_stop(s2);
 }
