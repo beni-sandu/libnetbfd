@@ -37,6 +37,20 @@ void bfd_session_modify(struct bfd_session_params *session, enum bfd_modify_cmd 
             break;
 
         case SESSION_CHANGE_PARAMS:
+            pr_debug("Parameter change requested for session [%s <--> %s], initiating Poll Sequence.\n", session->src_ip, session->dst_ip);
+            
+            if (des_min_tx_interval == 0 && req_min_rx_interval == 0) {
+                pr_debug("Both parameters are 0, no Poll Sequence required.\n");
+                return;
+            }
+
+            if (des_min_tx_interval > 0)
+                session->des_min_tx_interval = des_min_tx_interval;
+
+            if (req_min_rx_interval > 0)
+                session->req_min_rx_interval = req_min_rx_interval;
+            
+            session->current_session->poll_in_progress = true;
             break;
         
         default:

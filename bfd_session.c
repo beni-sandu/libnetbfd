@@ -231,6 +231,9 @@ void *bfd_session_run(void *args) {
     curr_session->detection_time = 1000000;
     curr_session->local_poll = false;
     curr_session->local_final = false;
+    curr_session->poll_in_progress = false;
+    curr_session->final_detection_time = 0;
+    curr_session->final_op_tx = 0;
 
     /* Build initial BFD control packet */
     bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,
@@ -455,12 +458,51 @@ void *bfd_session_run(void *args) {
             curr_session->remote_auth = (bfdp->byte2.auth_present >> 2) & 0x01;
             curr_session->remote_detect_mult = bfdp->detect_mult;
             curr_session->remote_des_min_tx_interval = ntohl(bfdp->des_min_tx_interval);
+            curr_session->remote_poll = (bfdp->byte2.poll >> 5) & 0x01;
+            curr_session->remote_final = (bfdp->byte2.final >> 4) & 0x01;
+
+            /*
+             * If a Poll Sequence is being transmitted by the local system and the Final (F) bit
+             * in the received packet is set, the Poll Sequence MUST be terminated.
+             */
+            if (curr_session->poll_in_progress == true && curr_session->remote_final == true) {
+                pr_debug("Finishing poll Sequence with remote: %s\n", curr_params->dst_ip);
+                curr_session->poll_in_progress = false;
+
+                if (curr_session->final_op_tx != 0) {
+                    pr_debug("Increasing TX interval from %d to %d.\n", curr_session->op_tx, curr_session->final_op_tx);
+                    curr_session->op_tx = curr_session->final_op_tx;
+                    curr_session->final_op_tx = 0;
+                }
+
+                if (curr_session->final_detection_time != 0) {
+                    pr_debug("Increasing Detection time from %d to %d.\n", curr_session->detection_time, curr_session->final_detection_time);
+                    curr_session->detection_time = curr_session->final_detection_time;
+                    curr_session->final_detection_time = 0;
+                }
+            }
 
             /* Update the operational transmit interval as per section 6.8.2 */
-            curr_session->op_tx = max(curr_params->des_min_tx_interval, curr_session->remote_min_rx_interval);
+            /*
+             * If the DesiredMinTxInterval is increased and session state is UP, the actual operation TX interval
+             * must not change until the Poll Sequence is finished.
+             */
+            curr_session->op_tx = max(curr_session->des_min_tx_interval, curr_session->remote_min_rx_interval);
+            if ((curr_params->des_min_tx_interval > curr_session->des_min_tx_interval) && curr_session->local_state == BFD_STATE_UP) {
+                curr_session->final_op_tx = max(curr_params->des_min_tx_interval, curr_session->remote_min_rx_interval);
+                pr_debug("Delaying increase in TX interval from %d to %d.\n", curr_session->op_tx, curr_session->final_op_tx);
+            }
 
             /* Update the Detection Time as per section 6.8.4 */
-            curr_session->detection_time = curr_session->remote_detect_mult * curr_session->remote_des_min_tx_interval;
+             /*
+             * If the RequiredMinRxInterval is decreased and session state is UP, the detection time
+             * must not change until the Poll Sequence is finished.
+             */
+            curr_session->detection_time = curr_session->remote_detect_mult * max(curr_session->req_min_rx_interval, curr_session->remote_des_min_tx_interval);
+            if ((curr_params->req_min_rx_interval < curr_session->req_min_rx_interval) && curr_session->local_state == BFD_STATE_UP) {
+                curr_session->final_detection_time = curr_session->remote_detect_mult * max(curr_params->req_min_rx_interval, curr_session->remote_des_min_tx_interval);
+                pr_debug("Delaying decrease in detect time from %d to %d.\n", curr_session->detection_time, curr_session->final_detection_time);
+            }
 
             //pr_debug("<---[%s] Received BFD packet: detect_time = %d, state = %s\n", get_time(t_now), curr_session->detection_time, state2string(curr_session->remote_state));
 
@@ -521,6 +563,45 @@ void *bfd_session_run(void *args) {
                         }
                     }
                 }
+            }
+
+            /*
+             * If the Poll (P) bit is set, send a BFD Control packet to the remote system
+             * with the Poll (P) bit clear, and the Final (F) bit set.
+             * This has to be done as soon as practicable, without respect to the transmission timer.
+             */
+            if (curr_session->remote_poll == true) {
+
+                int c = 0;
+                uint32_t jitt_maxpercent;
+                uint32_t tx_jitter;
+
+                curr_session->local_poll = false;
+                curr_session->local_final = true;
+                
+                /* Update packet data */
+                bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,
+                    curr_params->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_session->des_min_tx_interval,
+                    curr_session->req_min_rx_interval, &pkt);
+
+                /* Update UDP header */
+                bfd_build_udp(&pkt, &udp_tag, l);
+
+                /* Send BFD packet on wire */
+                c = libnet_write(l);
+
+                if (c == -1) {
+                    fprintf(stderr, "Write error: %s\n", libnet_geterror(l));
+                    pthread_exit(NULL);
+                }
+                //pr_debug("Poll Sequence finished with remote: %s\n", curr_params->dst_ip);
+
+                /* Do I need to reset the TX timer here? */
+                //jitt_maxpercent = (curr_params->detect_mult == 1) ? 15 : 25;
+                //uint32_t curr_percent = ((uint32_t) random() % jitt_maxpercent);
+                //tx_jitter = (curr_session->op_tx * (75 + ((uint32_t) random() % jitt_maxpercent))) / 100;
+                //pr_debug("curr_percent: %d, max_percent: %d, tx_jitt: %d\n", curr_percent, jitt_maxpercent, tx_jitter);
+                //bfd_update_timer(tx_jitter, &tx_ts, &tx_timer);
             }
 
         } //if (ret > 0)
@@ -585,6 +666,9 @@ void tx_timeout_handler(union sigval sv) {
     libnet_t *l = timer_data->l;
     struct itimerspec *tx_ts = timer_data->tx_ts;
     //char t_now[100];
+
+    if (curr_session->poll_in_progress == true)
+        curr_session->local_poll = true;
 
     /* Update packet data */
     bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,

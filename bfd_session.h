@@ -72,10 +72,13 @@ struct bfd_session {
     uint32_t detection_time;
     uint32_t remote_detect_mult;
     uint32_t op_tx;
+    uint32_t final_op_tx;
+    uint32_t final_detection_time;
     bool local_poll;
     bool local_final;
     bool remote_poll;
     bool remote_final;
+    bool poll_in_progress;
 };
 
 /* Add a typedef for a BFD session ID */
