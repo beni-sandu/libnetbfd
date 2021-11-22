@@ -127,7 +127,7 @@ int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *t
     return EXIT_SUCCESS;
 }
 
-char *state2string(enum bfd_state state) {
+const char *state2string(enum bfd_state state) {
 
     switch(state) {
         case BFD_STATE_UP:

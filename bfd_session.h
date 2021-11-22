@@ -2,6 +2,7 @@
 #define BFD_SESSION_H_
 
 #include <stdbool.h>
+#include <arpa/inet.h>
 
 /* RFC5881 (https://datatracker.ietf.org/doc/html/rfc5881) specifies the ports that MUST be used */
 #define BFD_CTRL_PORT   3784
@@ -39,8 +40,8 @@ struct cb_status {
 
 /* Parameters for a new BFD session */
 struct bfd_session_params {
-    char *src_ip;                                           /* Source IP in string format (IPv4/IPv6) */
-    char *dst_ip;                                           /* Destination IP in string format (IPv4/IPv6) */
+    char src_ip[INET6_ADDRSTRLEN];                          /* Source IP in string format (IPv4/IPv6) */
+    char dst_ip[INET6_ADDRSTRLEN];                          /* Destination IP in string format (IPv4/IPv6) */
     bool is_ipv6;                                           /* Flag to select type of IP session */
     uint32_t des_min_tx_interval;                           /* Desired min TX interval for current session, BFD specific */
     uint32_t req_min_rx_interval;                           /* Required min RX interval for current session, BFD specific */

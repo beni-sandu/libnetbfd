@@ -12,9 +12,35 @@
 #include "bfd_session.h"
 #include "libbfd.h"
 
+/* Per thread variables */
+__thread libnet_t *l;                                        /* libnet context */
+__thread char libnet_errbuf[LIBNET_ERRBUF_SIZE];             /* libnet error buffer */
+__thread uint32_t src_ipv4;                                  /* Local IPv4 in binary form */
+__thread uint32_t dst_ipv4;                                  /* Remote IPv4 in binary form */
+__thread struct libnet_in6_addr dst_ipv6;                    /* Remote IPv6 in binary form */
+__thread struct libnet_in6_addr src_ipv6;                    /* Local IPv6 in binary form */
+__thread struct bfd_ctrl_packet pkt;                         /* BFD control packet that we send */
+__thread libnet_ptag_t udp_tag = 0, ip_tag = 0;              /* libnet tags */
+__thread int sockfd;                                         /* UDP socket file descriptor */
+__thread struct sockaddr_in sav4;                            /* IPv4 socket address */
+__thread struct sockaddr_in6 sav6;                           /* IPv6 socket address */
+__thread char recv_buf[BFD_PKG_MIN_SIZE];                    /* Buffer for received packet */
+__thread int ret;                                            /* Number of received bytes on socket */
+__thread struct bfd_ctrl_packet *bfdp;                       /* Pointer to BFD packet received from remote peer */
+__thread cap_t caps;
+__thread cap_flag_value_t cap_val;
+__thread struct cb_status callback_status;
+__thread int ns_fd;
+__thread char ns_buf[MAX_PATH] = "/run/netns/";
+__thread struct bfd_timer tx_timer;
+__thread struct sigevent tx_sev;
+__thread struct itimerspec tx_ts;
+
 /* Forward declarations */
 void tx_timeout_handler(union sigval sv);
 void thread_cleanup(void *args);
+int recvfrom_ppoll(int sockfd, char *recv_buf, int buf_size, int timeout_us);
+void *bfd_session_run(void *args);
 
 int recvfrom_ppoll(int sockfd, char *recv_buf, int buf_size, int timeout_us) {
 
@@ -45,35 +71,6 @@ int recvfrom_ppoll(int sockfd, char *recv_buf, int buf_size, int timeout_us) {
 
 /* Entry point of a new BFD session */
 void *bfd_session_run(void *args) {
-
-    libnet_t *l;                                        /* libnet context */
-    char libnet_errbuf[LIBNET_ERRBUF_SIZE];             /* libnet error buffer */
-    uint32_t src_ipv4;                                  /* Local IPv4 in binary form */
-    uint32_t dst_ipv4;                                  /* Remote IPv4 in binary form */
-    struct libnet_in6_addr dst_ipv6;                    /* Remote IPv6 in binary form */
-    struct libnet_in6_addr src_ipv6;                    /* Local IPv6 in binary form */
-    //char if_name[32];                                 /* Local interface used on capturing */
-    struct bfd_ctrl_packet pkt;                         /* BFD control packet that we send */
-    libnet_ptag_t udp_tag = 0, ip_tag = 0;              /* libnet tags */
-    int sockfd;                                         /* UDP socket file descriptor */
-    struct sockaddr_in sav4;                            /* IPv4 socket address */
-    struct sockaddr_in6 sav6;                           /* IPv6 socket address */
-    char recv_buf[BFD_PKG_MIN_SIZE];                    /* Buffer for received packet */
-    int ret;                                            /* Number of received bytes on socket */
-    struct bfd_ctrl_packet *bfdp;                       /* Pointer to BFD packet received from remote peer */
-    cap_t caps;
-    cap_flag_value_t cap_val;
-    struct cb_status callback_status;
-    int ns_fd;
-    char ns_buf[MAX_PATH] = "/run/netns/";
-    //uint32_t tx_jitter = 0;
-    //uint32_t jitt_maxpercent = 0;
-
-    struct bfd_timer tx_timer;
-    struct sigevent tx_sev;
-    struct itimerspec tx_ts;
-    //struct itimerspec tx_remain;
-    //int c;
 
     /* Useful pointers */
     struct bfd_thread *current_thread = (struct bfd_thread *)args;
@@ -169,7 +166,7 @@ void *bfd_session_run(void *args) {
         }
 
         src_ipv6 = libnet_name2addr6(l, curr_params->src_ip, LIBNET_DONT_RESOLVE);
-        if (strncmp((char *)&src_ipv6, (char *)&in6addr_error, sizeof(in6addr_error)) == 0) {
+        if (strncmp((char *)&src_ipv6, (const char *)&in6addr_error, sizeof(in6addr_error)) == 0) {
             fprintf(stderr, "Bad source IPv6 address: %s\n", curr_params->src_ip);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
@@ -177,7 +174,7 @@ void *bfd_session_run(void *args) {
         }
 
         dst_ipv6 = libnet_name2addr6(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE);
-        if (strncmp((char *)&dst_ipv6, (char *)&in6addr_error, sizeof(in6addr_error)) == 0) {
+        if (strncmp((char *)&dst_ipv6, (const char *)&in6addr_error, sizeof(in6addr_error)) == 0) {
             fprintf(stderr, "Bad destination IPv6 address: %s\n", curr_params->dst_ip);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
@@ -197,14 +194,14 @@ void *bfd_session_run(void *args) {
             pthread_exit(NULL);
         }
 
-        if ((src_ipv4 = libnet_name2addr4(l, curr_params->src_ip, LIBNET_DONT_RESOLVE)) == -1) {
+        if ((src_ipv4 = libnet_name2addr4(l, curr_params->src_ip, LIBNET_DONT_RESOLVE)) == (uint32_t)-1) {
             fprintf(stderr, "Bad source IPv4 address: %s\n", curr_params->src_ip);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
 
-        if ((dst_ipv4 = libnet_name2addr4(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE)) == -1) {
+        if ((dst_ipv4 = libnet_name2addr4(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE)) == (uint32_t)-1) {
             fprintf(stderr, "Bad destination IPv4 address: %s\n", curr_params->dst_ip);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
@@ -573,8 +570,8 @@ void *bfd_session_run(void *args) {
             if (curr_session->remote_poll == true) {
 
                 int c = 0;
-                uint32_t jitt_maxpercent;
-                uint32_t tx_jitter;
+                //uint32_t jitt_maxpercent;
+                //uint32_t tx_jitter;
 
                 curr_session->local_poll = false;
                 curr_session->local_final = true;
@@ -699,9 +696,6 @@ void tx_timeout_handler(union sigval sv) {
 void thread_cleanup(void *args) {
     
     struct bfd_timer *timer = (struct bfd_timer *)args;
-
-    pr_debug("Thread cleanup handler called for session: %s.\n", timer->sess_params->src_ip);
-    pr_debug("timer: %p, libnet: %p\n", timer->timer_id, timer->l);
 
     /* Cleanup allocated data */
     if (timer->timer_id != NULL)

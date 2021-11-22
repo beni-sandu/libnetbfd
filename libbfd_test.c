@@ -6,6 +6,9 @@
 #include "bfd_session.h"
 #include "libbfd.h"
 
+/* Prototypes */
+void bfd_callback(struct cb_status *status);
+
 void bfd_callback(struct cb_status *status) {
     /*
      *  1 - Session detected the remote peer going DOWN (detection time expired)
