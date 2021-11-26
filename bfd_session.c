@@ -342,6 +342,9 @@ void *bfd_session_run(void *args) {
         }
     }
 
+    /* Store the sockfd so we can close it when we're done */
+    tx_timer.sess_params->current_session->sockfd = sockfd;
+
     /* Bind the socket */
     if (curr_params->is_ipv6 == true) {
         memset(&sav6, 0, sizeof(struct sockaddr_in6));
@@ -703,4 +706,7 @@ void thread_cleanup(void *args) {
     
     if (timer->l != NULL)
         libnet_destroy(timer->l);
+
+    if (timer->sess_params->current_session->sockfd != 0)
+        close(timer->sess_params->current_session->sockfd);
 }
