@@ -13,7 +13,6 @@
 #include "bfd_packet.h"
 #include "bfd_session.h"
 
-
 void bfd_session_modify(struct bfd_session_params *session, enum bfd_modify_cmd cmd,
     uint32_t des_min_tx_interval, uint32_t req_min_rx_interval) {
 
@@ -155,4 +154,30 @@ char *get_time(char *t_now) {
     strcpy(t_now, timestamp);
 
     return t_now;
+}
+
+bool is_ip_valid(char *ip, bool is_ipv6) {
+
+    if (is_ipv6 == true) {
+        struct sockaddr_in6 sa;
+        
+        int ret = inet_pton(AF_INET6, ip, &(sa.sin6_addr));
+
+        if (ret == 1)
+            return true;
+        else if (ret == 0)
+            return false;
+    }
+    else {
+        struct sockaddr_in sa;
+        
+        int ret = inet_pton(AF_INET, ip, &(sa.sin_addr));
+
+        if (ret == 1)
+            return true;
+        else if (ret == 0)
+            return false;
+    }
+
+    return false;
 }

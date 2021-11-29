@@ -73,3 +73,4 @@ const char *state2string(enum bfd_state state);
 char *get_time(char *t_now);
 void bfd_session_modify(struct bfd_session_params *session, enum bfd_modify_cmd cmd,
     uint32_t des_min_tx_interval, uint32_t req_min_rx_interval);
+bool is_ip_valid(char *ip, bool is_ipv6);

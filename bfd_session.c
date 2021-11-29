@@ -165,21 +165,21 @@ void *bfd_session_run(void *args) {
             pthread_exit(NULL);
         }
 
-        src_ipv6 = libnet_name2addr6(l, curr_params->src_ip, LIBNET_DONT_RESOLVE);
-        if (strncmp((char *)&src_ipv6, (const char *)&in6addr_error, sizeof(in6addr_error)) == 0) {
+        if (is_ip_valid(curr_params->src_ip, true) == false) {
             fprintf(stderr, "Bad source IPv6 address: %s\n", curr_params->src_ip);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
+        src_ipv6 = libnet_name2addr6(l, curr_params->src_ip, LIBNET_DONT_RESOLVE);
 
-        dst_ipv6 = libnet_name2addr6(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE);
-        if (strncmp((char *)&dst_ipv6, (const char *)&in6addr_error, sizeof(in6addr_error)) == 0) {
+        if (is_ip_valid(curr_params->dst_ip, true) == false) {
             fprintf(stderr, "Bad destination IPv6 address: %s\n", curr_params->dst_ip);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
+        dst_ipv6 = libnet_name2addr6(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE);
     }
     else {
         l = libnet_init(
@@ -194,19 +194,21 @@ void *bfd_session_run(void *args) {
             pthread_exit(NULL);
         }
 
-        if ((src_ipv4 = libnet_name2addr4(l, curr_params->src_ip, LIBNET_DONT_RESOLVE)) == (uint32_t)-1) {
+        if (is_ip_valid(curr_params->src_ip, false) == false) {
             fprintf(stderr, "Bad source IPv4 address: %s\n", curr_params->src_ip);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
+        src_ipv4 = libnet_name2addr4(l, curr_params->src_ip, LIBNET_DONT_RESOLVE);
 
-        if ((dst_ipv4 = libnet_name2addr4(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE)) == (uint32_t)-1) {
+        if (is_ip_valid(curr_params->dst_ip, false) == false) {
             fprintf(stderr, "Bad destination IPv4 address: %s\n", curr_params->dst_ip);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
+        dst_ipv4 = libnet_name2addr4(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE);
     }
 
     /* Copy libnet pointer */
