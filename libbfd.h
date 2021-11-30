@@ -1,8 +1,4 @@
 #include <libnet.h>
-#ifdef __STDC_NO_ATOMICS__
-# error this implementation needs atomics
-#endif
-#include <stdatomic.h>
 #include <semaphore.h>
 #include <pthread.h>
 

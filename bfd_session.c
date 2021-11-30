@@ -12,7 +12,8 @@
 #include "bfd_session.h"
 #include "libbfd.h"
 
-static atomic_ulong src_port = BFD_SRC_PORT_MIN;
+pthread_mutex_t port_lock = PTHREAD_MUTEX_INITIALIZER;
+static uint16_t src_port = BFD_SRC_PORT_MIN;
 
 /* Per thread variables */
 __thread libnet_t *l;                                        /* libnet context */
@@ -235,7 +236,11 @@ void *bfd_session_run(void *args) {
     curr_session->poll_in_progress = false;
     curr_session->final_detection_time = 0;
     curr_session->final_op_tx = 0;
+
+    /* Get a source port for the session */
+    pthread_mutex_lock(&port_lock);
     curr_session->src_port = src_port++;
+    pthread_mutex_unlock(&port_lock);
 
     /* Build initial BFD control packet */
     bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,
