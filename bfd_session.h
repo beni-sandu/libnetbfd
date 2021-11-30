@@ -81,6 +81,7 @@ struct bfd_session {
     bool remote_final;
     bool poll_in_progress;
     int sockfd;
+    uint16_t src_port;
 };
 
 /* Add a typedef for a BFD session ID */

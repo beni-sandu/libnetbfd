@@ -67,22 +67,24 @@ int main(void) {
     s2 = bfd_session_start(&s2_params);
 
     if (s1 > 0)
-        printf("BFD session started successfully, local IP: %s, remote IP: %s, session id: %ld\n", s1_params.src_ip, s1_params.dst_ip, s1);
+        printf("BFD session started successfully, local IP: %s, remote IP: %s, session id: %ld, src_port: %d\n", s1_params.src_ip,
+                    s1_params.dst_ip, s1, s1_params.current_session->src_port);
     else
         printf("Error starting BFD session for IP: %s\n", s1_params.src_ip);
 
     if (s2 > 0)
-        printf("BFD session started successfully, local IP: %s, remote IP: %s, session id: %ld\n", s2_params.src_ip, s2_params.dst_ip, s2);
+        printf("BFD session started successfully, local IP: %s, remote IP: %s, session id: %ld, src_port: %d\n", s2_params.src_ip,
+                    s2_params.dst_ip, s2, s2_params.current_session->src_port);
     else
         printf("Error starting BFD session for IP: %s\n", s2_params.src_ip);
     
     /* Wait 5s, put session s1 into ADMIN_DOWN */
     sleep(5);
-    bfd_session_modify(&s1_params, SESSION_ENABLE_ADMIN_DOWN, 0, 0);
+    //bfd_session_modify(&s1_params, SESSION_ENABLE_ADMIN_DOWN, 0, 0);
 
     /* After another 5s, get s1 out of ADMIN_DOWN */
     sleep(5);
-    bfd_session_modify(&s1_params, SESSION_DISABLE_ADMIN_DOWN, 0, 0);
+    //bfd_session_modify(&s1_params, SESSION_DISABLE_ADMIN_DOWN, 0, 0);
 
     sleep(30);
     bfd_session_stop(s1);

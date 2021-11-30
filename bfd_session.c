@@ -12,6 +12,8 @@
 #include "bfd_session.h"
 #include "libbfd.h"
 
+static atomic_ulong src_port = BFD_SRC_PORT_MIN;
+
 /* Per thread variables */
 __thread libnet_t *l;                                        /* libnet context */
 __thread char libnet_errbuf[LIBNET_ERRBUF_SIZE];             /* libnet error buffer */
@@ -233,18 +235,16 @@ void *bfd_session_run(void *args) {
     curr_session->poll_in_progress = false;
     curr_session->final_detection_time = 0;
     curr_session->final_op_tx = 0;
+    curr_session->src_port = src_port++;
 
     /* Build initial BFD control packet */
     bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,
                 curr_params->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_session->des_min_tx_interval,
                 curr_session->req_min_rx_interval, &pkt);
-    
-    /* Get a unique source port for every session */
-    src_port++;
 
     /* Build UDP header */
     udp_tag = libnet_build_udp(
-        src_port,                                               /* Source port */
+        curr_session->src_port,                                 /* Source port */
         BFD_CTRL_PORT,                                          /* Destination port */
         LIBNET_UDP_H + BFD_PKG_MIN_SIZE,                        /* Packet lenght */
         0,                                                      /* Checksum */
@@ -587,7 +587,7 @@ void *bfd_session_run(void *args) {
                     curr_session->req_min_rx_interval, &pkt);
 
                 /* Update UDP header */
-                bfd_build_udp(&pkt, &udp_tag, l);
+                bfd_build_udp(&pkt, curr_session->src_port, &udp_tag, l);
 
                 /* Send BFD packet on wire */
                 c = libnet_write(l);
@@ -678,7 +678,7 @@ void tx_timeout_handler(union sigval sv) {
         curr_session->req_min_rx_interval, pkt);
 
     /* Update UDP header */
-    bfd_build_udp(pkt, udp_tag, l);
+    bfd_build_udp(pkt, curr_session->src_port, udp_tag, l);
 
     /* Send BFD packet on wire */
     c = libnet_write(l);

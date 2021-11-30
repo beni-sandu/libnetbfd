@@ -16,8 +16,6 @@
 #define pr_debug(...)
 #endif
 
-static atomic_ulong src_port = BFD_SRC_PORT_MIN;
-
 #define max(a, b) \
    ({ __typeof__ (a) _a = (a); \
        __typeof__ (b) _b = (b); \
@@ -47,7 +45,7 @@ struct bfd_timer {
 };
 
 /* Wrapper to update UDP header */
-static inline void bfd_build_udp(struct bfd_ctrl_packet *pkt, libnet_ptag_t *udp_tag, libnet_t *l) {
+static inline void bfd_build_udp(struct bfd_ctrl_packet *pkt, uint16_t src_port, libnet_ptag_t *udp_tag, libnet_t *l) {
     
     *udp_tag = libnet_build_udp(
         src_port,                                           /* Source port */
