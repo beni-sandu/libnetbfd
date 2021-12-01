@@ -647,6 +647,9 @@ bfd_session_id bfd_session_start(struct bfd_session_params *params) {
     if (new_thread.ret != 0)
         return new_thread.ret;
 
+    /* Copy the session id */
+    params->current_session->session_id = session_id;
+    
     return session_id;
 }
 

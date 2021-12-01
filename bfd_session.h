@@ -14,6 +14,9 @@
 #define NET_NS_SIZE 32
 #define MAX_PATH 512
 
+/* Add a typedef for a BFD session ID */
+typedef long int bfd_session_id;
+
 enum bfd_diag {
     BFD_DIAG_NODIAG                     = 0,
     BFD_DIAG_CTRL_DETECT_TIME_EXPIRED   = 1,
@@ -82,10 +85,9 @@ struct bfd_session {
     bool poll_in_progress;
     int sockfd;
     uint16_t src_port;
+    bfd_session_id session_id;
+    
 };
-
-/* Add a typedef for a BFD session ID */
-typedef long int bfd_session_id;
 
 /* Function prototypes */
 bfd_session_id bfd_session_start(struct bfd_session_params *params);
