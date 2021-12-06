@@ -78,15 +78,17 @@ int main(void) {
     else
         printf("Error starting BFD session for IP: %s\n", s2_params.src_ip);
     
-    /* Wait 5s, put session s1 into ADMIN_DOWN */
-    sleep(5);
-    //bfd_session_modify(&s1_params, SESSION_ENABLE_ADMIN_DOWN, 0, 0);
+    
+    bfd_print_session_stats(s1);
+    bfd_print_session_stats(s2);
+    bfd_session_modify(s1, SESSION_ENABLE_ADMIN_DOWN, 0, 0);
+    bfd_print_session_stats(s1);
+    bfd_session_modify(s1, SESSION_ENABLE_ADMIN_DOWN, 0, 0);
+    bfd_session_modify(s1, SESSION_DISABLE_ADMIN_DOWN, 0, 0);
+    bfd_print_session_stats(s1);
 
-    /* After another 5s, get s1 out of ADMIN_DOWN */
-    sleep(5);
-    //bfd_session_modify(&s1_params, SESSION_DISABLE_ADMIN_DOWN, 0, 0);
-
-    sleep(30);
     bfd_session_stop(s1);
+    bfd_print_session_stats(s1);
     bfd_session_stop(s2);
+    bfd_print_session_stats(s2);
 }

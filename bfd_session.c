@@ -12,8 +12,11 @@
 #include "bfd_session.h"
 #include "libbfd.h"
 
+/* Globals */
 pthread_mutex_t port_lock = PTHREAD_MUTEX_INITIALIZER;
 static uint16_t src_port = BFD_SRC_PORT_MIN;
+extern struct bfd_session_node *head;
+extern pthread_rwlock_t rwlock;
 
 /* Per thread variables */
 __thread libnet_t *l;                                        /* libnet context */
@@ -38,6 +41,7 @@ __thread char ns_buf[MAX_PATH] = "/run/netns/";
 __thread struct bfd_timer tx_timer;
 __thread struct sigevent tx_sev;
 __thread struct itimerspec tx_ts;
+__thread struct bfd_session_node session_node;
 
 /* Forward declarations */
 void tx_timeout_handler(union sigval sv);
@@ -388,7 +392,15 @@ void *bfd_session_run(void *args) {
         }
     }
 
-    /* Initial session configuration is successful, start sending/receiving packets */
+    /* Copy params pointer to session node */
+    session_node.session_params = curr_params;
+
+    /* Add the session to the list */
+    pthread_rwlock_wrlock(&rwlock);
+    bfd_add_session(&head, &session_node);
+    pthread_rwlock_unlock(&rwlock);
+
+    /* Session configuration is successful, return a valid session id */
     sem_post(&current_thread->sem);
 
     /* Start sending packets at Desired min TX interval */
@@ -668,6 +680,11 @@ void bfd_session_stop(bfd_session_id session_id) {
         pr_debug("Stopping BFD session: %ld\n", session_id);
         pthread_cancel(session_id);
         pthread_join(session_id, NULL);
+
+        /* Remove session from list */
+        pthread_rwlock_wrlock(&rwlock);
+        bfd_remove_session(&head, session_id);
+        pthread_rwlock_unlock(&rwlock);
     }
 }
 
