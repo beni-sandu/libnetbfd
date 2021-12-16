@@ -154,6 +154,14 @@ void *bfd_session_run(void *args) {
         close(ns_fd);
     }
 
+    /* Make sure source/destination IPs are different */
+    if (strcmp(curr_params->src_ip, curr_params->dst_ip) == 0) {
+        fprintf(stderr, "Cannot use same IP address for both source/destination.\n");
+        current_thread->ret = -1;
+        sem_post(&current_thread->sem);
+        pthread_exit(NULL);
+    }
+
     /* libnet init */
     if (curr_params->is_ipv6 == true) {
         l = libnet_init(
