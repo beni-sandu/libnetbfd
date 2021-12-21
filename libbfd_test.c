@@ -79,16 +79,16 @@ int main(void) {
         printf("Error starting BFD session for IP: %s\n", s2_params.src_ip);
     
     
-    bfd_print_session_stats(s1);
-    bfd_print_session_stats(s2);
+    bfd_session_print_stats(s1);
+    bfd_session_print_stats(s2);
     bfd_session_modify(s1, SESSION_ENABLE_ADMIN_DOWN, 0, 0);
-    bfd_print_session_stats(s1);
+    bfd_session_print_stats(s1);
     bfd_session_modify(s1, SESSION_ENABLE_ADMIN_DOWN, 0, 0);
     bfd_session_modify(s1, SESSION_DISABLE_ADMIN_DOWN, 0, 0);
-    bfd_print_session_stats(s1);
+    bfd_session_print_stats(s1);
 
     bfd_session_stop(s1);
-    bfd_print_session_stats(s1);
+    bfd_session_print_stats(s1);
     bfd_session_stop(s2);
-    bfd_print_session_stats(s2);
+    bfd_session_print_stats(s2);
 }
