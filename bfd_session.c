@@ -677,14 +677,15 @@ bfd_session_id bfd_session_start(struct bfd_session_params *params) {
 void bfd_session_stop(bfd_session_id session_id) {
 
     if (session_id > 0) {
-        pr_debug("Stopping BFD session: %ld\n", session_id);
-        pthread_cancel(session_id);
-        pthread_join(session_id, NULL);
 
         /* Remove session from list */
         pthread_rwlock_wrlock(&rwlock);
         bfd_remove_session(&head, session_id);
         pthread_rwlock_unlock(&rwlock);
+
+        pr_debug("Stopping BFD session: %ld\n", session_id);
+        pthread_cancel(session_id);
+        pthread_join(session_id, NULL);
     }
 }
 
