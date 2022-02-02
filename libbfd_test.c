@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <unistd.h>
 
-#include "bfd_session.h"
 #include "libbfd.h"
 
 /* Prototypes */
@@ -62,6 +61,8 @@ int main(void) {
         .src_ip = "fec0:0:0:f101::1",
         .dscp = 16, //OAM (CS2)
     };
+
+    printf("Running with: %s\n", bfd_lib_version());
 
     s1 = bfd_session_start(&s1_params);
     s2 = bfd_session_start(&s2_params);

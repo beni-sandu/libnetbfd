@@ -6,6 +6,10 @@
 
 #define DEBUG_ENABLE
 
+/* Library version */
+#define VER_MAJOR "0"
+#define VER_MINOR "1"
+
 #ifdef DEBUG_ENABLE
 #define pr_debug(...) printf(__VA_ARGS__)
 #else
@@ -76,3 +80,4 @@ void bfd_add_session(struct bfd_session_node **head, struct bfd_session_node *ne
 struct bfd_session_node *bfd_find_session(bfd_session_id session_id);
 void bfd_session_print_stats(bfd_session_id session_id);
 void bfd_remove_session(struct bfd_session_node **head_ref, bfd_session_id session_id);
+const char *bfd_lib_version(void);

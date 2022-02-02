@@ -204,3 +204,9 @@ void bfd_session_print_stats(bfd_session_id session_id) {
     printf("%-25s %d\n", "Detection time:", session->session_params->current_session->detection_time);
     printf("---------------------------------------------\n");
 }
+
+/* Return library version */
+const char *bfd_lib_version(void) {
+
+    return ("libbfd version " VER_MAJOR "." VER_MINOR);
+}
