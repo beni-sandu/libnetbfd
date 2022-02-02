@@ -37,7 +37,6 @@ enum bfd_modify_cmd {
 /* Data passed to per thread timer */
 struct bfd_timer {
     timer_t timer_id;                                       /* POSIX interval timer id */
-    bool next_pkt;                                          /* Flag to control packet transaction */
     struct bfd_session_params *sess_params;                 /* pointer to current BFD session parameters if needed */
     struct bfd_ctrl_packet *pkt;
     libnet_ptag_t *udp_tag;

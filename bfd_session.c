@@ -81,7 +81,6 @@ void *bfd_session_run(void *args) {
 
     /* Useful pointers */
     struct bfd_thread *current_thread = (struct bfd_thread *)args;
-    //struct bfd_session_params *curr_params = (struct bfd_session_params *)args;
     struct bfd_session_params *curr_params = current_thread->session_params;
     struct bfd_session new_session;
     curr_params->current_session = &new_session;
@@ -419,7 +418,6 @@ void *bfd_session_run(void *args) {
             if (curr_session->local_state == BFD_STATE_UP) {
                 curr_session->local_state = BFD_STATE_DOWN;
                 curr_session->local_diag = BFD_DIAG_CTRL_DETECT_TIME_EXPIRED;
-                //pr_debug("Detected BFD remote %s going DOWN.\n", curr_params->dst_ip);
                 if (curr_params->callback != NULL) {
                     callback_status.cb_ret = 1;
                     curr_params->callback(&callback_status);
@@ -531,11 +529,8 @@ void *bfd_session_run(void *args) {
                 pr_debug("Delaying decrease in detect time from %d to %d.\n", curr_session->detection_time, curr_session->final_detection_time);
             }
 
-            //pr_debug("<---[%s] Received BFD packet: detect_time = %d, state = %s\n", get_time(t_now), curr_session->detection_time, state2string(curr_session->remote_state));
-
             /* BFD state machine logic */
             if (curr_session->local_state == BFD_STATE_ADMIN_DOWN) {
-                //pr_debug("Got BFD packet from: %s while in ADMIN_DOWN.\n", curr_params->dst_ip);
                 continue;
             }
 
@@ -543,7 +538,6 @@ void *bfd_session_run(void *args) {
                 if (curr_session->local_state != BFD_STATE_DOWN) {
                     curr_session->local_diag = BFD_DIAG_NEIGH_SIGNL_SESS_DOWN;
                     curr_session->local_state = BFD_STATE_DOWN;
-                    //pr_debug("BFD remote: %s signaled going ADMIN_DOWN.\n", curr_params->dst_ip);
                     if (curr_params->callback != NULL) {
                         callback_status.cb_ret = 5;
                         curr_params->callback(&callback_status);
@@ -554,7 +548,6 @@ void *bfd_session_run(void *args) {
                 if (curr_session->local_state == BFD_STATE_DOWN) {
                     if (curr_session->remote_state == BFD_STATE_DOWN) {
                         curr_session->local_state = BFD_STATE_INIT;
-                        //pr_debug("BFD session: %s going to INIT.\n", curr_params->src_ip);
                         if (curr_params->callback != NULL) {
                             callback_status.cb_ret = 2;
                             curr_params->callback(&callback_status);
@@ -562,7 +555,6 @@ void *bfd_session_run(void *args) {
                     }
                     else if (curr_session->remote_state == BFD_STATE_INIT) {
                         curr_session->local_state = BFD_STATE_UP;
-                        //pr_debug("BFD session: %s going to UP.\n", curr_params->src_ip);
                         if (curr_params->callback != NULL) {
                             callback_status.cb_ret = 3;
                             curr_params->callback(&callback_status);
@@ -572,7 +564,6 @@ void *bfd_session_run(void *args) {
                 else if (curr_session->local_state == BFD_STATE_INIT) {
                         if (curr_session->remote_state == BFD_STATE_INIT || curr_session->remote_state == BFD_STATE_UP) {
                             curr_session->local_state = BFD_STATE_UP;
-                            //pr_debug("BFD session: %s going to UP.\n", curr_params->src_ip);
                             if (curr_params->callback != NULL) {
                                 callback_status.cb_ret = 3;
                                 curr_params->callback(&callback_status);
@@ -583,7 +574,6 @@ void *bfd_session_run(void *args) {
                     if (curr_session->remote_state == BFD_STATE_DOWN) {
                         curr_session->local_diag = BFD_DIAG_NEIGH_SIGNL_SESS_DOWN;
                         curr_session->local_state = BFD_STATE_DOWN;
-                        //pr_debug("BFD remote: %s signaled going DOWN.\n", curr_params->dst_ip);
                         if (curr_params->callback != NULL) {
                                 callback_status.cb_ret = 4;
                                 curr_params->callback(&callback_status);
@@ -600,8 +590,6 @@ void *bfd_session_run(void *args) {
             if (curr_session->remote_poll == true) {
 
                 int c = 0;
-                //uint32_t jitt_maxpercent;
-                //uint32_t tx_jitter;
 
                 curr_session->local_poll = false;
                 curr_session->local_final = true;
@@ -621,14 +609,6 @@ void *bfd_session_run(void *args) {
                     fprintf(stderr, "Write error: %s\n", libnet_geterror(l));
                     pthread_exit(NULL);
                 }
-                //pr_debug("Poll Sequence finished with remote: %s\n", curr_params->dst_ip);
-
-                /* Do I need to reset the TX timer here? */
-                //jitt_maxpercent = (curr_params->detect_mult == 1) ? 15 : 25;
-                //uint32_t curr_percent = ((uint32_t) random() % jitt_maxpercent);
-                //tx_jitter = (curr_session->op_tx * (75 + ((uint32_t) random() % jitt_maxpercent))) / 100;
-                //pr_debug("curr_percent: %d, max_percent: %d, tx_jitt: %d\n", curr_percent, jitt_maxpercent, tx_jitter);
-                //bfd_update_timer(tx_jitter, &tx_ts, &tx_timer);
             }
 
         } //if (ret > 0)
@@ -702,7 +682,6 @@ void tx_timeout_handler(union sigval sv) {
     libnet_ptag_t *udp_tag = timer_data->udp_tag;
     libnet_t *l = timer_data->l;
     struct itimerspec *tx_ts = timer_data->tx_ts;
-    //char t_now[100];
 
     if (curr_session->poll_in_progress == true)
         curr_session->local_poll = true;
@@ -722,14 +701,10 @@ void tx_timeout_handler(union sigval sv) {
         fprintf(stderr, "Write error: %s\n", libnet_geterror(l));
         pthread_exit(NULL);
     }
-    //else
-    //    pr_debug("--->[%s] Sent BFD packet: tx_intrvl = %d, state = %s\n", get_time(t_now), curr_session->des_min_tx_interval, state2string(curr_session->local_state));
 
     /* Apply jitter to TX transmit interval as per section 6.8.7 and start the timer for the next packet */
     jitt_maxpercent = (curr_params->detect_mult == 1) ? 15 : 25;
-    //uint32_t curr_percent = ((uint32_t) random() % jitt_maxpercent);
     tx_jitter = (curr_session->op_tx * (75 + ((uint32_t) random() % jitt_maxpercent))) / 100;
-    //pr_debug("curr_percent: %d, max_percent: %d, tx_jitt: %d\n", curr_percent, jitt_maxpercent, tx_jitter);
     bfd_update_timer(tx_jitter, tx_ts, timer_data);
 }
 

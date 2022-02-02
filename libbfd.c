@@ -80,58 +80,6 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
     }
 }
 
-/* 
- * Search a device on the local system, given an IP address as input.
- *
- * Return 0 on success and name is copied in 3rd argument or 
- * -1 if something failed or no interface is found with that IP.
- * 
- * There is probably a better way to do this, but good enough for now. :)
- */
-int search_device_by_ip(char *ip, bool is_ipv6, char *device) {
-    
-    struct ifaddrs *addrs, *ifp;
-    struct sockaddr_in *sav4;
-    struct sockaddr_in6 *sav6;
-    char ip_buf[32];
-    
-    /* Get a list of network interfaces on the local system */
-    if (getifaddrs(&addrs) == -1) {
-        perror("getifaddrs: ");
-        return EXIT_FAILURE;
-    }
-    
-    /* Use a crawler pointer, so we can free the list anytime */
-    ifp = addrs;
-
-    while (ifp != NULL) {
-        if (is_ipv6 == true) {
-            if (ifp->ifa_addr != NULL && ifp->ifa_addr->sa_family == AF_INET6) {
-                sav6 = (struct sockaddr_in6 *)(ifp->ifa_addr);
-                inet_ntop(ifp->ifa_addr->sa_family, (void *)&sav6->sin6_addr, ip_buf, sizeof(ip_buf));
-            }
-        } else {
-            if (ifp->ifa_addr != NULL && ifp->ifa_addr->sa_family == AF_INET) {
-                sav4 = (struct sockaddr_in *)(ifp->ifa_addr);
-                inet_ntop(ifp->ifa_addr->sa_family, (void *)&sav4->sin_addr, ip_buf, sizeof(ip_buf));
-            }
-        }
-        
-        if (strcmp(ip, ip_buf) == 0) {
-            strcpy(device, ifp->ifa_name);
-            freeifaddrs(addrs);
-            return EXIT_SUCCESS;
-        }
-        ifp = ifp->ifa_next;
-    }
-
-    /* If no interface was found, free the list and return */
-    if (addrs != NULL)
-        freeifaddrs(addrs);
-
-    return EXIT_FAILURE;
-}
-
 int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *timer_data) {
 
     /* Update timer interval */
@@ -162,20 +110,6 @@ const char *state2string(enum bfd_state state) {
     }
     
     return "UNKNOWN BFD STATE";
-}
-
-char *get_time(char *t_now) {
-    time_t now;
-	struct tm *local = NULL;
-	char timestamp[100];
-
-    now = time(NULL);
-	local = localtime(&now);
-	strftime(timestamp, sizeof(timestamp), "%H:%M:%S", local);
-    
-    strcpy(t_now, timestamp);
-
-    return t_now;
 }
 
 bool is_ip_valid(char *ip, bool is_ipv6) {
