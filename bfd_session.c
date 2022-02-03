@@ -233,6 +233,7 @@ void *bfd_session_run(void *args) {
 
     /* Configure initial values for the new BFD session */
     curr_session->des_min_tx_interval = curr_params->des_min_tx_interval;
+    curr_session->req_min_rx_interval = curr_params->req_min_rx_interval;
     curr_session->op_tx = (curr_params->des_min_tx_interval < 1000000) ? 1000000 : curr_params->des_min_tx_interval;
     curr_session->local_diag = BFD_DIAG_NODIAG;
     curr_session->local_discr = (uint32_t)(random());
@@ -240,7 +241,6 @@ void *bfd_session_run(void *args) {
     curr_session->remote_discr = 0;
     curr_session->remote_min_rx_interval = 0;
     curr_session->remote_state = BFD_STATE_DOWN;
-    curr_session->req_min_rx_interval = curr_params->req_min_rx_interval;
     curr_session->detection_time = 1000000;
     curr_session->local_poll = false;
     curr_session->local_final = false;
@@ -493,18 +493,20 @@ void *bfd_session_run(void *args) {
             if (curr_session->poll_in_progress == true && curr_session->remote_final == true) {
                 pr_debug("Finishing poll Sequence with remote: %s\n", curr_params->dst_ip);
                 curr_session->poll_in_progress = false;
+                curr_session->local_poll = false;
+            }
 
-                if (curr_session->final_op_tx != 0) {
-                    pr_debug("Increasing TX interval from %d to %d.\n", curr_session->op_tx, curr_session->final_op_tx);
-                    curr_session->op_tx = curr_session->final_op_tx;
-                    curr_session->final_op_tx = 0;
-                }
+            /* If parameter change was delayed, adjust it here */
+            if (curr_session->final_op_tx != 0) {
+                curr_session->op_tx = curr_session->final_op_tx;
+                curr_session->final_op_tx = 0;
+                curr_session->des_min_tx_interval = curr_params->des_min_tx_interval;
+            }
 
-                if (curr_session->final_detection_time != 0) {
-                    pr_debug("Increasing Detection time from %d to %d.\n", curr_session->detection_time, curr_session->final_detection_time);
-                    curr_session->detection_time = curr_session->final_detection_time;
-                    curr_session->final_detection_time = 0;
-                }
+            if (curr_session->final_detection_time != 0) {
+                curr_session->detection_time = curr_session->final_detection_time;
+                curr_session->final_detection_time = 0;
+                curr_session->req_min_rx_interval = curr_params->req_min_rx_interval;
             }
 
             /* Update the operational transmit interval as per section 6.8.2 */
@@ -512,22 +514,24 @@ void *bfd_session_run(void *args) {
              * If the DesiredMinTxInterval is increased and session state is UP, the actual operation TX interval
              * must not change until the Poll Sequence is finished.
              */
-            curr_session->op_tx = max(curr_session->des_min_tx_interval, curr_session->remote_min_rx_interval);
             if ((curr_params->des_min_tx_interval > curr_session->des_min_tx_interval) && curr_session->local_state == BFD_STATE_UP) {
                 curr_session->final_op_tx = max(curr_params->des_min_tx_interval, curr_session->remote_min_rx_interval);
-                pr_debug("Delaying increase in TX interval from %d to %d.\n", curr_session->op_tx, curr_session->final_op_tx);
             }
+            else if ((curr_params->des_min_tx_interval < curr_session->des_min_tx_interval) && curr_session->local_state == BFD_STATE_UP)
+                curr_session->des_min_tx_interval = curr_params->des_min_tx_interval;
+            curr_session->op_tx = max(curr_session->des_min_tx_interval, curr_session->remote_min_rx_interval);
 
             /* Update the Detection Time as per section 6.8.4 */
              /*
              * If the RequiredMinRxInterval is decreased and session state is UP, the detection time
              * must not change until the Poll Sequence is finished.
              */
-            curr_session->detection_time = curr_session->remote_detect_mult * max(curr_session->req_min_rx_interval, curr_session->remote_des_min_tx_interval);
             if ((curr_params->req_min_rx_interval < curr_session->req_min_rx_interval) && curr_session->local_state == BFD_STATE_UP) {
                 curr_session->final_detection_time = curr_session->remote_detect_mult * max(curr_params->req_min_rx_interval, curr_session->remote_des_min_tx_interval);
-                pr_debug("Delaying decrease in detect time from %d to %d.\n", curr_session->detection_time, curr_session->final_detection_time);
             }
+            else if ((curr_params->req_min_rx_interval > curr_session->req_min_rx_interval) && curr_session->local_state == BFD_STATE_UP)
+                curr_session->req_min_rx_interval = curr_params->req_min_rx_interval;
+            curr_session->detection_time = curr_session->remote_detect_mult * max(curr_session->req_min_rx_interval, curr_session->remote_des_min_tx_interval);
 
             /* BFD state machine logic */
             if (curr_session->local_state == BFD_STATE_ADMIN_DOWN) {
@@ -604,6 +608,9 @@ void *bfd_session_run(void *args) {
 
                 /* Send BFD packet on wire */
                 c = libnet_write(l);
+
+                /* We only send 1 packet with the Final (F) bit set, so flip it back */
+                curr_session->local_final = false;
 
                 if (c == -1) {
                     fprintf(stderr, "Write error: %s\n", libnet_geterror(l));

@@ -55,27 +55,29 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
             break;
 
         case SESSION_CHANGE_PARAMS:
-            /*
-            pr_debug("Parameter change requested for session [%s <--> %s], initiating Poll Sequence.\n", session->src_ip, session->dst_ip);
-            
+
             if (des_min_tx_interval == 0 && req_min_rx_interval == 0) {
-                pr_debug("Both parameters are 0, no Poll Sequence required.\n");
+                fprintf(stderr, "Both parameters are 0, nothing to be done.\n");
                 return;
             }
 
+            pr_debug("Parameter change requested for session [%s <--> %s], initiating Poll Sequence.\n", session->session_params->src_ip, session->session_params->dst_ip);
+
+            /* Is it a good idea to change both of them at the same time? Time(testing) will tell */
+            pthread_rwlock_wrlock(&rwlock);
             if (des_min_tx_interval > 0)
-                session->des_min_tx_interval = des_min_tx_interval;
+                session->session_params->des_min_tx_interval = des_min_tx_interval;
 
             if (req_min_rx_interval > 0)
-                session->req_min_rx_interval = req_min_rx_interval;
+                session->session_params->req_min_rx_interval = req_min_rx_interval;
             
-            session->current_session->poll_in_progress = true;
-            */
-            pr_debug("Command currently not supported.\n");
+            session->session_params->current_session->poll_in_progress = true;
+            pthread_rwlock_unlock(&rwlock);
+
             break;
 
         default:
-            pr_debug("Invalid bfd_session_modify command.\n");
+            fprintf(stderr, "Invalid bfd_session_modify command.\n");
             break;
     }
 }
