@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <unistd.h>
 
-#include "libbfd.h"
+#include <libbfd/libbfd.h>
 
 /* Prototypes */
 void bfd_callback(struct cb_status *status);

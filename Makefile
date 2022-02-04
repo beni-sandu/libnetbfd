@@ -1,7 +1,8 @@
 STRICT_COMPILE = 0
 
 CFLAGS = -Wall
-LDFLAGS = -L$(shell pwd) -lbfd -lpthread -lrt -lcap -lnet
+LDFLAGS = -lbfd -lpthread -lrt -lcap -lnet
+OUTDIR = build
 
 ifeq ($(STRICT_COMPILE),1)
 CFLAGS += -O2 -W -Werror -Wstrict-prototypes -Wmissing-prototypes
@@ -12,13 +13,11 @@ CFLAGS += -Wbad-function-cast -Wformat-nonliteral -Wsuggest-attribute=format -Wi
 CFLAGS += -std=gnu99
 endif
 
-BIN = bfd_test
+TEST_BIN = bfd_test
 
-bfd_test_FILES = \
-	libbfd.c \
-	bfd_session.c \
-	bfd_packet.c \
-	libbfd_test.c
+VERSION = $(shell grep LIBBFD_VERSION libbfd.h | cut -d " " -f 3)
+
+bfd_test_FILES = libbfd_test.c
 
 # Use SDK environment if available
 CC = $(shell echo $$CC)
@@ -26,14 +25,30 @@ ifeq ($(CC),)
 	CC = $(shell which gcc)
 endif
 
-all: libs
-	@$(CC) $(CFLAGS) $(bfd_test_FILES) -o $(BIN) $(LDFLAGS)
+ifeq ($(PREFIX),)
+    PREFIX := /usr/local
+endif
 
 libs:
+	@mkdir $(OUTDIR)
 	@$(CC) -c $(CFLAGS) -fpic libbfd.c bfd_session.c bfd_packet.c
-	@$(CC) -shared -o libbfd.so libbfd.o bfd_session.o bfd_packet.o
+	@$(CC) -shared -o $(OUTDIR)/libbfd.so.$(VERSION) libbfd.o bfd_session.o bfd_packet.o
+	@ln -rsf $(OUTDIR)/libbfd.so.$(VERSION) $(OUTDIR)/libbfd.so
 	@rm *.o
 
+install:
+	@mkdir -p $(PREFIX)/include/libbfd
+	@cp -d $(OUTDIR)/libbfd.so* $(PREFIX)/lib
+	@cp *.h $(PREFIX)/include/libbfd
+	@ldconfig
+
+uninstall:
+	@rm -rf $(PREFIX)/include/libbfd 2> /dev/null ||:
+	@rm $(PREFIX)/lib/libbfd.so* 2> /dev/null ||:
+	@ldconfig
+
+test:
+	@$(CC) $(CFLAGS) $(bfd_test_FILES) -o $(TEST_BIN) $(LDFLAGS)
+
 clean:
-	@rm $(BIN) 2> /dev/null ||:
-	@rm libbfd.so 2> /dev/null ||:
+	@rm -rf $(OUTDIR) 2> /dev/null ||:
