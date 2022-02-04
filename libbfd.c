@@ -210,5 +210,5 @@ void bfd_session_print_stats(bfd_session_id session_id) {
 /* Return library version */
 const char *bfd_lib_version(void) {
 
-    return ("libbfd version " VER_MAJOR "." VER_MINOR);
+    return ("libbfd version "LIBBFD_VERSION);
 }

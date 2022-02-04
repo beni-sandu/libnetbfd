@@ -7,8 +7,7 @@
 #define DEBUG_ENABLE
 
 /* Library version */
-#define VER_MAJOR "0"
-#define VER_MINOR "1"
+#define LIBBFD_VERSION "0.1"
 
 #ifdef DEBUG_ENABLE
 #define pr_debug(...) printf(__VA_ARGS__)
