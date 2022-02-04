@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <unistd.h>
 
-#include <libbfd/libbfd.h>
+#include <libnetbfd/libnetbfd.h>
 
 /* Prototypes */
 void bfd_callback(struct cb_status *status);
@@ -62,7 +62,7 @@ int main(void) {
         .dscp = 16, //OAM (CS2)
     };
 
-    printf("Running with: %s\n", bfd_lib_version());
+    printf("Running with: %s\n", netbfd_lib_version());
 
     s1 = bfd_session_start(&s1_params);
     s2 = bfd_session_start(&s2_params);

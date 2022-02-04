@@ -10,7 +10,7 @@
 
 #include "bfd_packet.h"
 #include "bfd_session.h"
-#include "libbfd.h"
+#include "libnetbfd.h"
 
 /* Globals */
 pthread_mutex_t port_lock = PTHREAD_MUTEX_INITIALIZER;

@@ -1,7 +1,7 @@
 STRICT_COMPILE = 0
 
 CFLAGS = -Wall
-LDFLAGS = -lbfd -lpthread -lrt -lcap -lnet
+LDFLAGS = -lnetbfd -lpthread -lrt -lcap -lnet
 OUTDIR = build
 
 ifeq ($(STRICT_COMPILE),1)
@@ -15,9 +15,9 @@ endif
 
 TEST_BIN = bfd_test
 
-VERSION = $(shell grep LIBBFD_VERSION libbfd.h | cut -d " " -f 3)
+VERSION = $(shell grep LIBNETBFD_VERSION libnetbfd.h | cut -d " " -f 3)
 
-bfd_test_FILES = libbfd_test.c
+bfd_test_FILES = libnetbfd_test.c
 
 # Use SDK environment if available
 CC = $(shell echo $$CC)
@@ -31,21 +31,19 @@ endif
 
 libs:
 	@mkdir $(OUTDIR)
-	@$(CC) -c $(CFLAGS) -fpic libbfd.c bfd_session.c bfd_packet.c
-	@$(CC) -shared -o $(OUTDIR)/libbfd.so.$(VERSION) libbfd.o bfd_session.o bfd_packet.o
-	@ln -rsf $(OUTDIR)/libbfd.so.$(VERSION) $(OUTDIR)/libbfd.so
+	@$(CC) -c $(CFLAGS) -fpic libnetbfd.c bfd_session.c bfd_packet.c
+	@$(CC) -shared -o $(OUTDIR)/libnetbfd.so.$(VERSION) libnetbfd.o bfd_session.o bfd_packet.o
+	@ln -rsf $(OUTDIR)/libnetbfd.so.$(VERSION) $(OUTDIR)/libnetbfd.so
 	@rm *.o
 
 install:
-	@mkdir -p $(PREFIX)/include/libbfd
-	@cp -d $(OUTDIR)/libbfd.so* $(PREFIX)/lib
-	@cp *.h $(PREFIX)/include/libbfd
-	@ldconfig
+	@mkdir -p $(PREFIX)/include/libnetbfd
+	@cp -d $(OUTDIR)/libnetbfd.so* $(PREFIX)/lib
+	@cp *.h $(PREFIX)/include/libnetbfd
 
 uninstall:
-	@rm -rf $(PREFIX)/include/libbfd 2> /dev/null ||:
-	@rm $(PREFIX)/lib/libbfd.so* 2> /dev/null ||:
-	@ldconfig
+	@rm -rf $(PREFIX)/include/libnetbfd 2> /dev/null ||:
+	@rm $(PREFIX)/lib/libnetbfd.so* 2> /dev/null ||:
 
 test:
 	@$(CC) $(CFLAGS) $(bfd_test_FILES) -o $(TEST_BIN) $(LDFLAGS)

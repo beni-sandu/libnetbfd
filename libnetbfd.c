@@ -9,7 +9,7 @@
 #include <time.h>
 #include <libnet.h>
 
-#include "libbfd.h"
+#include "libnetbfd.h"
 #include "bfd_packet.h"
 #include "bfd_session.h"
 
@@ -208,7 +208,7 @@ void bfd_session_print_stats(bfd_session_id session_id) {
 }
 
 /* Return library version */
-const char *bfd_lib_version(void) {
+const char *netbfd_lib_version(void) {
 
-    return ("libbfd version "LIBBFD_VERSION);
+    return ("libnetbfd version "LIBNETBFD_VERSION);
 }
