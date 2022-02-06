@@ -32,7 +32,7 @@ endif
 libs:
 	@mkdir $(OUTDIR)
 	@$(CC) -c $(CFLAGS) -fpic libnetbfd.c bfd_session.c bfd_packet.c
-	@$(CC) -shared -o $(OUTDIR)/libnetbfd.so.$(VERSION) libnetbfd.o bfd_session.o bfd_packet.o
+	@$(CC) -shared -Wl,-soname,libnetbfd.so.$(VERSION) -o $(OUTDIR)/libnetbfd.so.$(VERSION) libnetbfd.o bfd_session.o bfd_packet.o
 	@ln -rsf $(OUTDIR)/libnetbfd.so.$(VERSION) $(OUTDIR)/libnetbfd.so
 	@rm *.o
 
