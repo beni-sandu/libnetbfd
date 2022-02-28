@@ -30,6 +30,7 @@ ifeq ($(PREFIX),)
 endif
 
 libs:
+	@rm -rf $(OUTDIR) 2> /dev/null ||:
 	@mkdir $(OUTDIR)
 	@$(CC) -c $(CFLAGS) -fpic libnetbfd.c bfd_session.c bfd_packet.c
 	@$(CC) -shared -Wl,-soname,libnetbfd.so.$(VERSION) -o $(OUTDIR)/libnetbfd.so.$(VERSION) libnetbfd.o bfd_session.o bfd_packet.o
