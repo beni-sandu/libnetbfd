@@ -53,6 +53,7 @@ struct bfd_session_params {
     struct bfd_session *current_session;                    /* Pointer to current BFD session */
     uint8_t dscp;                                           /* IP differentiated services code point */
     char net_ns[NET_NS_SIZE];                               /* Network namespace name */
+    uint16_t src_port;                                      /* Source port */
 };
 
 /* 

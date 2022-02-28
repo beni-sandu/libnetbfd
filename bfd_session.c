@@ -261,10 +261,14 @@ void *bfd_session_run(void *args) {
     curr_session->final_detection_time = 0;
     curr_session->final_op_tx = 0;
 
-    /* Get a source port for the session */
-    pthread_mutex_lock(&port_lock);
-    curr_session->src_port = src_port++;
-    pthread_mutex_unlock(&port_lock);
+    /* Configure session source port */
+    if (curr_params->src_port > 0)
+        curr_session->src_port = curr_params->src_port;
+    else {
+        pthread_mutex_lock(&port_lock);
+        curr_session->src_port = src_port++;
+        pthread_mutex_unlock(&port_lock);
+    }
 
     /* Build initial BFD control packet */
     bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,
