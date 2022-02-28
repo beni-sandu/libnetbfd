@@ -30,7 +30,6 @@ __thread libnet_ptag_t udp_tag = 0, ip_tag = 0;              /* libnet tags */
 __thread int sockfd;                                         /* UDP socket file descriptor */
 __thread struct sockaddr_in sav4;                            /* IPv4 socket address */
 __thread struct sockaddr_in6 sav6;                           /* IPv6 socket address */
-__thread char recv_buf[BFD_PKG_MIN_SIZE];                    /* Buffer for received packet */
 __thread int ret;                                            /* Number of received bytes on socket */
 __thread struct bfd_ctrl_packet *bfdp;                       /* Pointer to BFD packet received from remote peer */
 __thread cap_t caps;
@@ -46,10 +45,10 @@ __thread struct bfd_session_node session_node;
 /* Forward declarations */
 void tx_timeout_handler(union sigval sv);
 void thread_cleanup(void *args);
-int recvfrom_ppoll(int sockfd, char *recv_buf, int buf_size, int timeout_us);
+int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us);
 void *bfd_session_run(void *args);
 
-int recvfrom_ppoll(int sockfd, char *recv_buf, int buf_size, int timeout_us) {
+int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us) {
 
     struct pollfd fds[1];
     struct timespec ts;
@@ -71,13 +70,27 @@ int recvfrom_ppoll(int sockfd, char *recv_buf, int buf_size, int timeout_us) {
     }
     else
         if (fds[0].revents & POLLIN)
-            return recvfrom(sockfd, recv_buf, buf_size, 0, NULL, NULL);
+            return recvmsg(sockfd, recv_hdr, 0);
     
     return EXIT_FAILURE;
 }
 
 /* Entry point of a new BFD session */
 void *bfd_session_run(void *args) {
+
+    /* Setup buffer and header structs for received packets */
+    uint8_t recv_buf[BFD_PKG_MIN_SIZE];
+    struct iovec recv_iov[1] = { { recv_buf, sizeof(recv_buf) } };
+    uint8_t recv_ctrldata[CMSG_SPACE(sizeof(uint8_t))];
+    struct msghdr recv_hdr = {
+        .msg_name = NULL,
+        .msg_namelen = 0,
+        .msg_iov = recv_iov,
+        .msg_iovlen = 1,
+        .msg_control = recv_ctrldata,
+        .msg_controllen = sizeof(recv_ctrldata)
+    };
+    int recv_ttl = 1;
 
     /* Useful pointers */
     struct bfd_thread *current_thread = (struct bfd_thread *)args;
@@ -363,6 +376,14 @@ void *bfd_session_run(void *args) {
     /* Store the sockfd so we can close it when we're done */
     tx_timer.sess_params->current_session->sockfd = sockfd;
 
+    /* Configure socket to read TTL value */
+    if (setsockopt(sockfd, IPPROTO_IP, IP_RECVTTL, &recv_ttl, sizeof(recv_ttl)) < 0) {
+        fprintf(stderr, "Can't configure socket to read TTL.\n");
+        current_thread->ret = -1;
+        sem_post(&current_thread->sem);
+        pthread_exit(NULL);
+    }
+
     /* Bind the socket */
     if (curr_params->is_ipv6 == true) {
         memset(&sav6, 0, sizeof(struct sockaddr_in6));
@@ -409,7 +430,7 @@ void *bfd_session_run(void *args) {
     while (true) {
         
         /* Check our socket for data */
-        ret = recvfrom_ppoll(sockfd, recv_buf, BFD_PKG_MIN_SIZE, curr_session->detection_time);
+        ret = recvmsg_ppoll(sockfd, &recv_hdr, curr_session->detection_time);
 
         /* No data available */
         if (ret == -2) {
@@ -427,6 +448,12 @@ void *bfd_session_run(void *args) {
 
         /* We have some data, get it and process it */
         if (ret > 0) {
+
+            /* If TTL/Hop limit is not 255, packet MUST be discarded (section 5 in RFC5881) */
+            if (get_ttl(&recv_hdr) != 255) {
+                pr_debug("Wrong TTL value for received packet.\n");
+                continue;
+            }
 
             /* Rules for reception of BFD control packets (section 6.8.6 in RFC5880) */
             bfdp = (struct bfd_ctrl_packet *)recv_buf;

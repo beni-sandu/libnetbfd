@@ -88,6 +88,8 @@ int main(void) {
     bfd_session_modify(s1, SESSION_DISABLE_ADMIN_DOWN, 0, 0);
     bfd_session_print_stats(s1);
 
+    sleep(30);
+
     bfd_session_stop(s1);
     bfd_session_print_stats(s1);
     bfd_session_stop(s2);

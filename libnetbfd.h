@@ -80,3 +80,4 @@ struct bfd_session_node *bfd_find_session(bfd_session_id session_id);
 void bfd_session_print_stats(bfd_session_id session_id);
 void bfd_remove_session(struct bfd_session_node **head_ref, bfd_session_id session_id);
 const char *netbfd_lib_version(void);
+int get_ttl(struct msghdr *recv_msg);
