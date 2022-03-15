@@ -786,4 +786,11 @@ void thread_cleanup(void *args) {
 
     if (timer->sess_params->current_session->sockfd != 0)
         close(timer->sess_params->current_session->sockfd);
+    
+    /* 
+     * If a session is not successfully configured, we don't call pthread_join on it,
+     * only pthread_exit. Calling pthread_detach here should automatically release
+     * resources for those that were not started.
+     */
+    pthread_detach(pthread_self());
 }
