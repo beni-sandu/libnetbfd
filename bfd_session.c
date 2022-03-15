@@ -379,7 +379,7 @@ void *bfd_session_run(void *args) {
     tx_ts.it_value.tv_nsec = curr_session->des_min_tx_interval % 1000000 * 1000;
 
     /* Create TX timer */
-    if (timer_create(CLOCK_REALTIME, &tx_sev, &tx_timer.timer_id) == -1) {
+    if (timer_create(CLOCK_REALTIME, &tx_sev, &(tx_timer.timer_id)) == -1) {
         perror("timer_create");
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
@@ -778,7 +778,7 @@ void thread_cleanup(void *args) {
     struct bfd_timer *timer = (struct bfd_timer *)args;
 
     /* Cleanup allocated data */
-    if (timer->timer_id != NULL)
+    if (&(timer->timer_id) != NULL)
         timer_delete(timer->timer_id);
     
     if (timer->l != NULL)
