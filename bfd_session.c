@@ -286,6 +286,7 @@ void *bfd_session_run(void *args) {
     curr_session->poll_in_progress = false;
     curr_session->final_detection_time = 0;
     curr_session->final_op_tx = 0;
+    curr_session->dst_port = BFD_CTRL_PORT;
 
     /* Configure session source port */
     if (curr_params->src_port > 0)

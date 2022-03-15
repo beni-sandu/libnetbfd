@@ -112,6 +112,7 @@ struct bfd_session {
     bool poll_in_progress;
     int sockfd;
     uint16_t src_port;
+    uint16_t dst_port;
     bfd_session_id session_id;
     
 };
