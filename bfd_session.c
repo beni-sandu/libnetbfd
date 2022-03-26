@@ -38,6 +38,11 @@
 #include "bfd_session.h"
 #include "libnetbfd.h"
 
+#define max(a, b) \
+   ({ __typeof__ (a) _a = (a); \
+       __typeof__ (b) _b = (b); \
+     _a > _b ? _a : _b; })
+
 /* Globals */
 pthread_mutex_t port_lock = PTHREAD_MUTEX_INITIALIZER;
 static uint16_t src_port = BFD_SRC_PORT_MIN;

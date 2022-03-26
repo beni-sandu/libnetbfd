@@ -48,11 +48,6 @@ extern "C" {
 #define pr_debug(...)
 #endif
 
-#define max(a, b) \
-   ({ __typeof__ (a) _a = (a); \
-       __typeof__ (b) _b = (b); \
-     _a > _b ? _a : _b; })
-
 struct bfd_session_node {
     struct bfd_session_params *session_params;
     struct bfd_session_node *next;
