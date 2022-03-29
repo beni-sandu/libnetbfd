@@ -783,8 +783,15 @@ void thread_cleanup(void *args) {
     struct bfd_timer *timer = (struct bfd_timer *)args;
 
     /* Cleanup allocated data */
-    if (&(timer->timer_id) != NULL)
+    if (&(timer->timer_id) != NULL) {
         timer_delete(timer->timer_id);
+        
+        /*
+         * Temporary workaround for C++ programs, seems sometimes the timer doesn't 
+         * get disarmed in time, and tries to use memory that was already freed.
+         */
+        usleep(100000);
+    }
     
     if (timer->l != NULL)
         libnet_destroy(timer->l);
