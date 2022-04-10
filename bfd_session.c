@@ -464,7 +464,7 @@ void *bfd_session_run(void *args) {
     /* Session configuration is successful, return a valid session id */
     sem_post(&current_thread->sem);
 
-    /* Start sending packets at Desired min TX interval */
+    /* Start sending packets at min 1s rate */
     bfd_update_timer(curr_session->op_tx, &tx_ts, &tx_timer);
 
     /* Loop for processing incoming packets */
@@ -480,6 +480,11 @@ void *bfd_session_run(void *args) {
             if (curr_session->local_state == BFD_STATE_UP) {
                 curr_session->local_state = BFD_STATE_DOWN;
                 curr_session->local_diag = BFD_DIAG_CTRL_DETECT_TIME_EXPIRED;
+
+                /* Adjust the operational TX to min 1s rate */
+                if (curr_session->op_tx < 1000000)
+                    curr_session->op_tx = 1000000;
+
                 if (curr_params->callback != NULL) {
                     callback_status.cb_ret = 1;
                     curr_params->callback(&callback_status);
