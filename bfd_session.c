@@ -136,6 +136,7 @@ void *bfd_session_run(void *args) {
     tx_timer.udp_tag = &udp_tag;
     tx_timer.tx_ts = &tx_ts;
     tx_timer.timer_id = NULL;
+    tx_timer.is_created = false;
 
     /*
      * Define some callback return codes here to cover cases that we're interested in (can be adjusted later if needed):
@@ -390,6 +391,10 @@ void *bfd_session_run(void *args) {
         sem_post(&current_thread->sem);
         pthread_exit(NULL);
     }
+
+    /* Timer should be created, but we still get a NULL pointer sometimes */
+    tx_timer.is_created = true;
+    pr_debug("TX timer ID: %p\n", tx_timer.timer_id);
 
     /* Create an UDP socket */
     if (curr_params->is_ipv6 == true) {
@@ -783,7 +788,7 @@ void thread_cleanup(void *args) {
     struct bfd_timer *timer = (struct bfd_timer *)args;
 
     /* Cleanup allocated data */
-    if (&(timer->timer_id) != NULL) {
+    if (timer->is_created == true) {
         timer_delete(timer->timer_id);
         
         /*
