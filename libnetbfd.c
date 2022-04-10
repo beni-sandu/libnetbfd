@@ -227,6 +227,7 @@ void bfd_session_print_stats(bfd_session_id session_id) {
     printf("%-25s %d\n", "DSCP:", session->session_params->dscp);
     printf("%-25s %d\n", "Des min TX interval:", session->session_params->current_session->des_min_tx_interval);
     printf("%-25s %d\n", "Req min RX interval:", session->session_params->current_session->req_min_rx_interval);
+    printf("%-25s %d\n", "Detection Multiplier:", session->session_params->detect_mult);
     printf("%-25s 0x%x\n", "My discriminator:", session->session_params->current_session->local_discr);
     printf("%-25s %s\n", "Current state:", state2string(session->session_params->current_session->local_state));
     printf("%-25s %d\n", "Operational TX:", session->session_params->current_session->op_tx);
