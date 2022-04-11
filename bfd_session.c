@@ -136,7 +136,8 @@ void *bfd_session_run(void *args) {
     tx_timer.udp_tag = &udp_tag;
     tx_timer.tx_ts = &tx_ts;
     tx_timer.timer_id = NULL;
-    tx_timer.is_created = false;
+    tx_timer.is_timer_created = false;
+    tx_timer.is_session_configured = false;
 
     /*
      * Define some callback return codes here to cover cases that we're interested in (can be adjusted later if needed):
@@ -393,7 +394,7 @@ void *bfd_session_run(void *args) {
     }
 
     /* Timer should be created, but we still get a NULL pointer sometimes */
-    tx_timer.is_created = true;
+    tx_timer.is_timer_created = true;
     pr_debug("TX timer ID: %p\n", tx_timer.timer_id);
 
     /* Create an UDP socket */
@@ -462,6 +463,7 @@ void *bfd_session_run(void *args) {
     pthread_rwlock_unlock(&rwlock);
 
     /* Session configuration is successful, return a valid session id */
+    tx_timer.is_session_configured = true;
     sem_post(&current_thread->sem);
 
     /* Start sending packets at min 1s rate */
@@ -793,7 +795,7 @@ void thread_cleanup(void *args) {
     struct bfd_timer *timer = (struct bfd_timer *)args;
 
     /* Cleanup allocated data */
-    if (timer->is_created == true) {
+    if (timer->is_timer_created == true) {
         timer_delete(timer->timer_id);
         
         /*
@@ -811,8 +813,9 @@ void thread_cleanup(void *args) {
     
     /* 
      * If a session is not successfully configured, we don't call pthread_join on it,
-     * only pthread_exit. Calling pthread_detach here should automatically release
-     * resources for those that were not started.
+     * only exit using pthread_exit. Calling pthread_detach here should automatically
+     * release resources for unconfigured sessions.
      */
-    pthread_detach(pthread_self());
+    if (timer->is_session_configured == false)
+        pthread_detach(pthread_self());
 }

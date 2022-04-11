@@ -67,7 +67,8 @@ enum bfd_modify_cmd {
 
 /* Data passed to per thread timer */
 struct bfd_timer {
-    bool is_created;
+    bool is_timer_created;
+    bool is_session_configured;
     timer_t timer_id;                                       /* POSIX interval timer id */
     struct bfd_session_params *sess_params;                 /* pointer to current BFD session parameters if needed */
     struct bfd_ctrl_packet *pkt;
