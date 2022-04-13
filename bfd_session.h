@@ -65,6 +65,7 @@ enum bfd_state {
 struct cb_status {
     int cb_ret;                                             /* Callback return value */
     struct bfd_session_params *session_params;              /* Pointer to current session parameters */
+    void *client_data;                                      /* Client specific data */
 };
 
 /* Parameters for a new BFD session */
