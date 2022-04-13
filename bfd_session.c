@@ -121,7 +121,7 @@ void *bfd_session_run(void *args) {
         .msg_control = recv_ctrldata,
         .msg_controllen = sizeof(recv_ctrldata)
     };
-    int recv_ttl = 1;
+    int flag_enable = 1;
 
     /* Useful pointers */
     struct bfd_thread *current_thread = (struct bfd_thread *)args;
@@ -419,8 +419,16 @@ void *bfd_session_run(void *args) {
     tx_timer.sess_params->current_session->sockfd = sockfd;
 
     /* Configure socket to read TTL value */
-    if (setsockopt(sockfd, IPPROTO_IP, IP_RECVTTL, &recv_ttl, sizeof(recv_ttl)) < 0) {
+    if (setsockopt(sockfd, IPPROTO_IP, IP_RECVTTL, &flag_enable, sizeof(flag_enable)) < 0) {
         fprintf(stderr, "Can't configure socket to read TTL.\n");
+        current_thread->ret = -1;
+        sem_post(&current_thread->sem);
+        pthread_exit(NULL);
+    }
+
+    /* Make socket address reusable */
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &flag_enable, sizeof(flag_enable)) < 0) {
+        fprintf(stderr, "Can't configure socket address to be reused.\n");
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
         pthread_exit(NULL);
