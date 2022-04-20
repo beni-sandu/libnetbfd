@@ -76,7 +76,7 @@ void bfd_session_print_stats(bfd_session_id session_id);
  *                                  - SESSION_DISABLE_ADMIN_DOWN - Get the session out of ADMIN_DOWN state
  *                                  - SESSION_CHANGE_PARAMS - Change the value of either Desired min TX interval or Required min RX interval
  * @des_min_tx_interval:    new value for Desired min TX interval when using SESSION_CHANGE_PARAMS
- * @req_min_tx_interval:    new value for Required min TX interval when using SESSION_CHANGE_PARAMS
+ * @req_min_rx_interval:    new value for Required min RX interval when using SESSION_CHANGE_PARAMS
  */
 void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
     uint32_t des_min_tx_interval, uint32_t req_min_rx_interval);
