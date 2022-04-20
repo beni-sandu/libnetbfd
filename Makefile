@@ -34,13 +34,13 @@ libs:
 	@mkdir $(OUTDIR)
 	@$(CC) -c $(CFLAGS) -fpic libnetbfd.c bfd_session.c bfd_packet.c
 	@$(CC) -shared -Wl,-soname,libnetbfd.so.$(VERSION) -o $(OUTDIR)/libnetbfd.so.$(VERSION) libnetbfd.o bfd_session.o bfd_packet.o
-	@ln -rsf $(OUTDIR)/libnetbfd.so.$(VERSION) $(OUTDIR)/libnetbfd.so
 	@rm *.o
 
 install:
 	@mkdir -p $(PREFIX)/include/libnetbfd
 	@cp -d $(OUTDIR)/libnetbfd.so* $(PREFIX)/lib
 	@cp *.h $(PREFIX)/include/libnetbfd
+	@ln -sf $(PREFIX)/lib/libnetbfd.so.$(VERSION) $(PREFIX)/lib/libnetbfd.so
 
 uninstall:
 	@rm -rf $(PREFIX)/include/libnetbfd 2> /dev/null ||:
