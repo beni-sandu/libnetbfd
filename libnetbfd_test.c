@@ -63,6 +63,7 @@ int main(void) {
     };
 
     printf("Running with: %s\n", netbfd_lib_version());
+    pr_debug("NOTE: You are using a debug build.\n");
 
     s1 = bfd_session_start(&s1_params);
     s2 = bfd_session_start(&s2_params);
@@ -78,7 +79,6 @@ int main(void) {
                     s2_params.dst_ip, s2, s2_params.current_session->src_port);
     else
         printf("Error starting BFD session for IP: %s\n", s2_params.src_ip);
-    
     
     bfd_session_print_stats(s1);
     bfd_session_print_stats(s2);

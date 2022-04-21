@@ -10,6 +10,12 @@ ifneq ($(VERBOSE), 1)
 Q=@
 endif
 
+# Use DEBUG_ENABLE=1 for a debug build
+DEBUG_ENABLE ?= 0
+ifeq ($(DEBUG_ENABLE), 1)
+CFLAGS += -DDEBUG_ENABLE
+endif
+
 ifeq ($(STRICT_COMPILE),1)
 CFLAGS += -O2 -W -Werror -Wstrict-prototypes -Wmissing-prototypes
 CFLAGS += -Wmissing-declarations -Wold-style-definition -Wpointer-arith
