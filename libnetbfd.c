@@ -62,7 +62,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
                 session->session_params->current_session->local_state = BFD_STATE_ADMIN_DOWN;
             }
             else
-                pr_debug("Session: %ld is already in ADMIN_DOWN, skipping.\n", session_id);
+                fprintf(stderr, "Session: %ld is already in ADMIN_DOWN, skipping.\n", session_id);
             pthread_rwlock_unlock(&rwlock);
 
             break;
@@ -75,7 +75,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
                 session->session_params->current_session->local_state = BFD_STATE_DOWN;
             }
             else
-                pr_debug("Session: %ld was not in ADMIN_DOWN, skipping.\n", session_id);
+                fprintf(stderr, "Session: %ld was not in ADMIN_DOWN, skipping.\n", session_id);
             pthread_rwlock_unlock(&rwlock);
 
             break;
