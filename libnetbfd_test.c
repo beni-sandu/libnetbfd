@@ -113,8 +113,8 @@ int main(void) {
     
     sleep(5);
 
-    bfd_session_print_stats(s1);
-    bfd_session_print_stats(s2);
+    bfd_session_print_stats_log(s1);
+    bfd_session_print_stats_log(s2);
 
     sleep(30);
 

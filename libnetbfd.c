@@ -211,6 +211,9 @@ struct bfd_session_node *bfd_find_session(bfd_session_id session_id) {
 
 void bfd_session_print_stats(bfd_session_id session_id) {
 
+    time_t now;
+    struct tm *local = NULL;
+    char timestamp[100];
     struct bfd_session_node *session = bfd_find_session(session_id);
 
     if (session == NULL) {
@@ -218,7 +221,13 @@ void bfd_session_print_stats(bfd_session_id session_id) {
         return;
     }
 
+    /* Get and format timestamp */
+    now = time(NULL);
+    local = localtime(&now);
+    strftime(timestamp, sizeof(timestamp), "%d-%b-%Y %H:%M:%S", local);
+
     printf("---------------------------------------------\n");
+    printf("%-25s %s\n", "Timestamp:", timestamp);
     printf("%-25s %ld\n", "Session ID:", session->session_params->current_session->session_id);
     printf("%-25s %s\n", "Source IP:", session->session_params->src_ip);
     printf("%-25s %s\n", "Destination IP:", session->session_params->dst_ip);
@@ -233,6 +242,55 @@ void bfd_session_print_stats(bfd_session_id session_id) {
     printf("%-25s %d\n", "Operational TX:", session->session_params->current_session->op_tx);
     printf("%-25s %d\n", "Detection time:", session->session_params->current_session->detection_time);
     printf("---------------------------------------------\n");
+}
+
+void bfd_session_print_stats_log(bfd_session_id session_id) {
+
+    time_t now;
+    struct tm *local = NULL;
+    char timestamp[100];
+    FILE *file = NULL;
+    struct bfd_session_node *session = bfd_find_session(session_id);
+
+    if (session == NULL) {
+        fprintf(stderr, "Could not find a valid BFD session with that id.\n");
+        return;
+    }
+
+    /* Open log file */
+    if (strlen(session->session_params->log_file) == 0)
+        return;
+    else {
+        file = fopen(session->session_params->log_file, "a");
+
+        if (file == NULL) {
+            perror("fopen");
+            return;
+        }
+    }
+
+    /* Get and format timestamp */
+    now = time(NULL);
+    local = localtime(&now);
+    strftime(timestamp, sizeof(timestamp), "%d-%b-%Y %H:%M:%S", local);
+
+    fprintf(file, "---------------------------------------------\n");
+    fprintf(file, "%-25s %s\n", "Timestamp:", timestamp);
+    fprintf(file, "%-25s %ld\n", "Session ID:", session->session_params->current_session->session_id);
+    fprintf(file, "%-25s %s\n", "Source IP:", session->session_params->src_ip);
+    fprintf(file, "%-25s %s\n", "Destination IP:", session->session_params->dst_ip);
+    fprintf(file, "%-25s %d\n", "Source port:", session->session_params->current_session->src_port);
+    fprintf(file, "%-25s %d\n", "Destination port:", session->session_params->current_session->dst_port);
+    fprintf(file, "%-25s %d\n", "DSCP:", session->session_params->dscp);
+    fprintf(file, "%-25s %d\n", "Des min TX interval:", session->session_params->current_session->des_min_tx_interval);
+    fprintf(file, "%-25s %d\n", "Req min RX interval:", session->session_params->current_session->req_min_rx_interval);
+    fprintf(file, "%-25s %d\n", "Detection Multiplier:", session->session_params->detect_mult);
+    fprintf(file, "%-25s 0x%x\n", "My discriminator:", session->session_params->current_session->local_discr);
+    fprintf(file, "%-25s %s\n", "Current state:", state2string(session->session_params->current_session->local_state));
+    fprintf(file, "%-25s %d\n", "Operational TX:", session->session_params->current_session->op_tx);
+    fprintf(file, "%-25s %d\n", "Detection time:", session->session_params->current_session->detection_time);
+    fprintf(file, "---------------------------------------------\n");
+    fclose(file);
 }
 
 /* Return library version */
