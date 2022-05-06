@@ -81,6 +81,7 @@ struct bfd_session_params {
     uint8_t dscp;                                           /* IP differentiated services code point */
     char net_ns[NET_NS_SIZE];                               /* Network namespace name */
     uint16_t src_port;                                      /* Source port */
+    char log_file[MAX_PATH];                                /* Path to log file */
 };
 
 /* 

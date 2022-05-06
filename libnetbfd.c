@@ -254,3 +254,32 @@ int get_ttl(struct msghdr *recv_msg) {
 
     return ttl;
 }
+
+void print_log(char *log_file, const char *format, ...) {
+
+    va_list arg;
+    time_t now;
+    struct tm *local = NULL;
+    char timestamp[100];
+    FILE *file = NULL;
+
+    if (strlen(log_file) == 0)
+        return;
+    else {
+        file = fopen(log_file, "a");
+
+        if (file == NULL) {
+            perror("fopen");
+            return;
+        }
+    }
+
+    va_start(arg, format);
+    now = time(NULL);
+    local = localtime(&now);
+    strftime(timestamp, sizeof(timestamp), "%d-%b-%Y %H:%M:%S", local);
+    fprintf(file, "[%s] ", timestamp);
+    vfprintf(file, format, arg);
+    va_end(arg);
+    fclose(file);
+}
