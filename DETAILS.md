@@ -12,6 +12,7 @@ Supported parameters for a BFD session
 - dscp - IP differentiated services code point
 - net_ns - Network namespace in string format
 - src_port - Source port for the session
+- log_file - Path to a file that can be used to store log messages
 
 These are provided as a parameter structure, e.g.:
 
@@ -50,21 +51,30 @@ bfd_session_id bfd_session_start(struct bfd_session_params *params);
  * If an invalid session id is provided, it will print an error message,
  * otherwise details similar to below:
  * ---------------------------------------------
- * Session ID:               139732927579904
- * Source IP:                192.168.1.1
- * Destination IP:           192.168.1.2
+ * Timestamp:                02-Jun-2022 11:42:05
+ * Session ID:               140479206323968
+ * Source IP:                192.168.2.1
+ * Destination IP:           192.168.2.2
  * Source port:              49152
  * Destination port:         3784
- * DSCP:                     8
+ * DSCP:                     16
  * Des min TX interval:      1000000
  * Req min RX interval:      1000000
- * My discriminator:         0x33f69f36
+ * Detection Multiplier:     1
+ * My discriminator:         0x25227654
  * Current state:            BFD_STATE_DOWN
  * Operational TX:           1000000
  * Detection time:           1000000
  * ---------------------------------------------
  */
 void bfd_session_print_stats(bfd_session_id session_id);
+
+
+/* 
+ * Similar behaviour to bfd_session_print_stats, but will instead print
+ * the details to the log file specified in session parameters.
+ */
+void bfd_session_print_stats_log(bfd_session_id session_id);
 
 
 /* 
