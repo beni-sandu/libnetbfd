@@ -12,10 +12,10 @@ independently of media, data protocols, and routing protocols.
 
 Building and installing
 -----------------------
-This library depends on libnet, so make sure that is available first (e.g. on Debian derived systems):
+Install needed dependencies first (e.g. on Debian derived systems):
 
 ```sh
-$ sudo apt install libnet1
+$ sudo apt install libnet1-dev libcap-dev
 ```
 
 Build and install libnetbfd:
