@@ -642,6 +642,7 @@ void *bfd_session_run(void *args) {
                     }
                     else if (curr_session->remote_state == BFD_STATE_INIT) {
                         curr_session->local_state = BFD_STATE_UP;
+                        curr_session->local_diag = BFD_DIAG_NODIAG;  // should this be updated?
                         if (curr_params->callback != NULL) {
                             callback_status.cb_ret = 3;
                             curr_params->callback(&callback_status);
@@ -651,6 +652,7 @@ void *bfd_session_run(void *args) {
                 else if (curr_session->local_state == BFD_STATE_INIT) {
                         if (curr_session->remote_state == BFD_STATE_INIT || curr_session->remote_state == BFD_STATE_UP) {
                             curr_session->local_state = BFD_STATE_UP;
+                            curr_session->local_diag = BFD_DIAG_NODIAG; // should this be updated?
                             if (curr_params->callback != NULL) {
                                 callback_status.cb_ret = 3;
                                 curr_params->callback(&callback_status);
