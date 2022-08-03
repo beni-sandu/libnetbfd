@@ -45,7 +45,7 @@ pthread_rwlock_t rwlock = PTHREAD_RWLOCK_INITIALIZER;
 
 void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
     uint32_t des_min_tx_interval, uint32_t req_min_rx_interval) {
-    
+
     struct bfd_session_node *session = bfd_find_session(session_id);
 
     if (session == NULL) {
@@ -98,7 +98,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
 
             if (req_min_rx_interval > 0)
                 session->session_params->req_min_rx_interval = req_min_rx_interval;
-            
+
             session->session_params->current_session->poll_in_progress = true;
             pthread_rwlock_unlock(&rwlock);
 
@@ -117,7 +117,7 @@ int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *t
     ts->it_interval.tv_nsec = interval_us % 1000000 * 1000;
     ts->it_value.tv_sec = interval_us / 1000000;
     ts->it_value.tv_nsec = interval_us % 1000000 * 1000;
-    
+
     if (timer_settime(timer_data->timer_id, 0, ts, 0) == -1) {
         perror("timer settime");
         return EXIT_FAILURE;
@@ -138,7 +138,7 @@ const char *state2string(enum bfd_state state) {
         case BFD_STATE_ADMIN_DOWN:
             return "BFD_STATE_ADMIN_DOWN";
     }
-    
+
     return "UNKNOWN BFD STATE";
 }
 
@@ -146,7 +146,7 @@ bool is_ip_valid(char *ip, bool is_ipv6) {
 
     if (is_ipv6 == true) {
         struct sockaddr_in6 sa;
-        
+
         int ret = inet_pton(AF_INET6, ip, &(sa.sin6_addr));
 
         if (ret == 1)
@@ -156,7 +156,7 @@ bool is_ip_valid(char *ip, bool is_ipv6) {
     }
     else {
         struct sockaddr_in sa;
-        
+
         int ret = inet_pton(AF_INET, ip, &(sa.sin_addr));
 
         if (ret == 1)
@@ -177,7 +177,7 @@ void bfd_add_session(struct bfd_session_node **head_ref, struct bfd_session_node
 void bfd_remove_session(struct bfd_session_node **head_ref, bfd_session_id session_id) {
 
     struct bfd_session_node *it = *head_ref, *prev;
- 
+
     if (it != NULL && it->session_params->current_session->session_id == session_id) {
         *head_ref = it->next;
         return;
@@ -302,7 +302,7 @@ const char *netbfd_lib_version(void) {
 }
 
 int get_ttl(struct msghdr *recv_msg) {
-    
+
     int ttl = -1;
 
     for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(recv_msg); cmsg != NULL; cmsg = CMSG_NXTHDR(recv_msg, cmsg))

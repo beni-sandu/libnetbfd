@@ -60,7 +60,7 @@ struct bfd_thread {
 enum bfd_modify_cmd {
     SESSION_ENABLE_ADMIN_DOWN       = 0,
     SESSION_DISABLE_ADMIN_DOWN      = 1,
-    SESSION_CHANGE_PARAMS           = 2
+    SESSION_CHANGE_PARAMS           = 2,
 };
 
 /* Data passed to per thread timer */
@@ -77,7 +77,7 @@ struct bfd_timer {
 
 /* Wrapper to update UDP header */
 static inline void bfd_build_udp(struct bfd_ctrl_packet *pkt, uint16_t src_port, libnet_ptag_t *udp_tag, libnet_t *l) {
-    
+
     *udp_tag = libnet_build_udp(
         src_port,                                           /* Source port */
         BFD_CTRL_PORT,                                      /* Destination port */
@@ -95,7 +95,6 @@ static inline void bfd_build_udp(struct bfd_ctrl_packet *pkt, uint16_t src_port,
 }
 
 /* Function prototypes */
-int bfd_start_tx_timer(struct bfd_timer *timer_data, struct itimerspec *ts);
 int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *btimer);
 const char *state2string(enum bfd_state state);
 void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,

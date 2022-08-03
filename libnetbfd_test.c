@@ -66,7 +66,7 @@ void bfd_callback_log(struct cb_status *status) {
 }
 
 int main(void) {
-    
+
     bfd_session_id s1 = 0, s2 = 0;
 
     struct bfd_session_params s1_params = {
@@ -110,7 +110,7 @@ int main(void) {
                     s2_params.dst_ip, s2, s2_params.current_session->src_port);
     else
         print_log(s2_params.log_file, "Error starting BFD session for IP: %s\n", s2_params.src_ip);
-    
+
     sleep(5);
 
     bfd_session_print_stats_log(s1);

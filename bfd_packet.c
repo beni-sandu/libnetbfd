@@ -35,7 +35,7 @@ void bfd_build_packet(enum bfd_diag diag, enum bfd_state state, bool poll, bool 
 
     /* Protocol version, always 1 */
     packet->byte1.version = 0x20;
-    
+
     /* Diagnostic code */
     packet->byte1.diag |= diag & 0x1F;
 
@@ -51,7 +51,7 @@ void bfd_build_packet(enum bfd_diag diag, enum bfd_state state, bool poll, bool 
     /* Set Final flag */
     packet->byte2.final |= (final << 4) & 0x10;
 
-    /* 
+    /*
      * Detection time multiplier: The negotiated transmit interval, multiplied by this value,
      * provides the Detection Time for the receiving system in Asynchronous mode.
      */
@@ -69,16 +69,16 @@ void bfd_build_packet(enum bfd_diag diag, enum bfd_state state, bool poll, bool 
      */
     packet->your_discr = htonl(your_discr);
 
-    /* 
-     * Desired min TX interval: minimum interval, in microseconds, that the local system would 
+    /*
+     * Desired min TX interval: minimum interval, in microseconds, that the local system would
      * like to use when transmitting BFD Control packets,less any jitter applied (see section 6.8.2).
      */
     packet->des_min_tx_interval = htonl(des_min_tx_interval);
 
     /*
-     * Required min RX interval: minimum interval, in microseconds, between received BFD Control packets 
+     * Required min RX interval: minimum interval, in microseconds, between received BFD Control packets
      * that this system is capable of supporting, less any jitter applied by the sender (see section 6.8.2).
-     * If this value is zero, the transmitting system does not want the remote system to send any periodic 
+     * If this value is zero, the transmitting system does not want the remote system to send any periodic
      * BFD Control packets.
      */
     packet->req_min_rx_interval = htonl(req_min_rx_interval);

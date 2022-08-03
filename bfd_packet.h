@@ -30,7 +30,7 @@
  * Generic BFD Control Packet Format:
  *
  * Mandatory section (yes, I numbered every bit, get over it):
- * 
+ *
  *   0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7 0 1 2 3 4 5 6 7
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  |Vers |  Diag   |Sta|P|F|C|A|D|M|  Detect Mult  |    Length     |

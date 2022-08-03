@@ -52,14 +52,14 @@ enum bfd_diag {
     BFD_DIAG_PATH_DOWN                  = 5,
     BFD_DIAG_CONCAT_PATH_DOWN           = 6,
     BFD_DIAG_ADMIN_DOWN                 = 7,
-    BFD_DIAG_REV_CONCAT_PATH_DOWN       = 8
+    BFD_DIAG_REV_CONCAT_PATH_DOWN       = 8,
 };
 
 enum bfd_state {
     BFD_STATE_ADMIN_DOWN                = 0,
     BFD_STATE_DOWN                      = 1,
     BFD_STATE_INIT                      = 2,
-    BFD_STATE_UP                        = 3
+    BFD_STATE_UP                        = 3,
 };
 
 struct cb_status {
@@ -84,10 +84,9 @@ struct bfd_session_params {
     char log_file[MAX_PATH];                                /* Path to log file */
 };
 
-/* 
- * Structure to describe a BFD session with all the state variables. While we could describe this in the bigger
- * one with all the parameters, probably better to encapsulate it separately for the moment.
- */ 
+/*
+ * Structure to describe a BFD session with all the state variables
+ */
 struct bfd_session {
     uint8_t remote_version;
     bool remote_multipoint;
@@ -116,7 +115,6 @@ struct bfd_session {
     uint16_t src_port;
     uint16_t dst_port;
     bfd_session_id session_id;
-    
 };
 
 /* Function prototypes */

@@ -102,7 +102,7 @@ int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us) {
     else
         if (fds[0].revents & POLLIN)
             return recvmsg(sockfd, recv_hdr, 0);
-    
+
     return EXIT_FAILURE;
 }
 
@@ -341,7 +341,7 @@ void *bfd_session_run(void *args) {
             0,                                                  /* Payload size */
             l,                                                  /* libnet handle */
             ip_tag);                                            /* libnet tag */
-        
+
         if (ip_tag == -1) {
             fprintf(stderr, "Can't build IP header: %s\n", libnet_geterror(l));
             current_thread->ret = -1;
@@ -364,7 +364,7 @@ void *bfd_session_run(void *args) {
             0,                                                  /* Payload size */
             l,                                                  /* libnet handle */
             ip_tag);                                            /* libnet tag */
-    
+
         if (ip_tag == -1) {
             fprintf(stderr, "Can't build IP header: %s\n", libnet_geterror(l));
             current_thread->ret = -1;
@@ -453,7 +453,7 @@ void *bfd_session_run(void *args) {
         sav4.sin_family = AF_INET;
         inet_pton(sav4.sin_family, curr_params->src_ip, &(sav4.sin_addr));
         sav4.sin_port = htons(BFD_CTRL_PORT);
-    
+
         if (bind(sockfd, (struct sockaddr *)&sav4, sizeof(sav4)) == -1) {
             perror("bind");
             current_thread->ret = -1;
@@ -479,7 +479,7 @@ void *bfd_session_run(void *args) {
 
     /* Loop for processing incoming packets */
     while (true) {
-        
+
         /* Check our socket for data */
         ret = recvmsg_ppoll(sockfd, &recv_hdr, curr_session->detection_time);
 
@@ -519,19 +519,19 @@ void *bfd_session_run(void *args) {
                 pr_debug("Wrong version number.\n");
                 continue;
             }
-        
+
             /* If the Length field is not correct, packet MUST be discarded */
             if (bfdp->length != BFD_PKG_MIN_SIZE) {
                 pr_debug("Wrong packet length.\n");
                 continue;
             }
-        
+
             /* If the Detect Mult field = 0, packet MUST be discarded */
             if (bfdp->detect_mult == 0) {
                 pr_debug("Wrong detect mult.\n");
                 continue;
             }
-        
+
             /* If the Multipoint bit is != 0, packet MUST be discarded */
             if ((bfdp->byte2.multipoint & 0x01) != 0) {
                 pr_debug("Wrong multipoint setting.\n");
@@ -556,7 +556,7 @@ void *bfd_session_run(void *args) {
                 pr_debug("Authentication is not supported.\n");
                 continue;
             }
-        
+
             /* Set BFD session variables */
             curr_session->remote_discr = ntohl(bfdp->my_discr);
             curr_session->remote_state = (bfdp->byte2.state >> 6) & 0x03;
@@ -682,7 +682,7 @@ void *bfd_session_run(void *args) {
 
                 curr_session->local_poll = false;
                 curr_session->local_final = true;
-                
+
                 /* Update packet data */
                 bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,
                     curr_params->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_session->des_min_tx_interval,
@@ -712,12 +712,12 @@ void *bfd_session_run(void *args) {
     return NULL;
 }
 
-/* 
+/*
  * Create a new BFD session, returns a session id
  * on successful creation, -1 otherwise
  */
 bfd_session_id bfd_session_start(struct bfd_session_params *params) {
-    
+
     pthread_t session_id;
     int ret;
     struct bfd_thread new_thread;
@@ -741,7 +741,7 @@ bfd_session_id bfd_session_start(struct bfd_session_params *params) {
 
     /* Copy the session id */
     params->current_session->session_id = session_id;
-    
+
     return session_id;
 }
 
@@ -801,27 +801,27 @@ void tx_timeout_handler(union sigval sv) {
 }
 
 void thread_cleanup(void *args) {
-    
+
     struct bfd_timer *timer = (struct bfd_timer *)args;
 
     /* Cleanup allocated data */
     if (timer->is_timer_created == true) {
         timer_delete(timer->timer_id);
-        
+
         /*
-         * Temporary workaround for C++ programs, seems sometimes the timer doesn't 
+         * Temporary workaround for C++ programs, seems sometimes the timer doesn't
          * get disarmed in time, and tries to use memory that was already freed.
          */
         usleep(100000);
     }
-    
+
     if (timer->l != NULL)
         libnet_destroy(timer->l);
 
     if (timer->sess_params->current_session->sockfd != 0)
         close(timer->sess_params->current_session->sockfd);
-    
-    /* 
+
+    /*
      * If a session is not successfully configured, we don't call pthread_join on it,
      * only exit using pthread_exit. Calling pthread_detach here should automatically
      * release resources for unconfigured sessions.
