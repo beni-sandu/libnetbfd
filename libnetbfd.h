@@ -41,7 +41,7 @@ extern "C" {
 #define LIBNETBFD_VERSION "0.1"
 
 #ifdef DEBUG_ENABLE
-#define pr_debug(...) printf(__VA_ARGS__)
+#define pr_debug(...) printf("[DEBUG] "__VA_ARGS__)
 #else
 #define pr_debug(...)
 #endif
