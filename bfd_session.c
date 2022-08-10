@@ -694,13 +694,13 @@ void *bfd_session_run(void *args) {
                 /* Send BFD packet on wire */
                 c = libnet_write(l);
 
-                /* We only send 1 packet with the Final (F) bit set, so flip it back */
-                curr_session->local_final = false;
-
                 if (c == -1) {
                     fprintf(stderr, "Write error: %s\n", libnet_geterror(l));
-                    pthread_exit(NULL);
+                    continue;
                 }
+
+                /* We only send 1 packet with the Final (F) bit set, so flip it back */
+                curr_session->local_final = false;
             }
 
         } //if (ret > 0)
