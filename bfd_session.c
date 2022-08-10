@@ -162,6 +162,7 @@ void *bfd_session_run(void *args) {
     }
 
     if (cap_get_flag(caps, CAP_NET_RAW, CAP_EFFECTIVE, &cap_val) == -1) {
+        perror("cap_get_flag");
         cap_free(caps);
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
