@@ -82,7 +82,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
 
             break;
 
-        case SESSION_CHANGE_PARAMS:
+        case SESSION_CHANGE_BFD_INTERVALS:
 
             if (des_min_tx_interval == 0 && req_min_rx_interval == 0) {
                 fprintf(stderr, "Both parameters are 0, nothing to be done.\n");

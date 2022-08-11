@@ -60,7 +60,7 @@ struct bfd_thread {
 enum bfd_modify_cmd {
     SESSION_ENABLE_ADMIN_DOWN       = 0,
     SESSION_DISABLE_ADMIN_DOWN      = 1,
-    SESSION_CHANGE_PARAMS           = 2,
+    SESSION_CHANGE_BFD_INTERVALS    = 2,
 };
 
 /* Data passed to per thread timer */
