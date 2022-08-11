@@ -343,7 +343,7 @@ void *bfd_session_run(void *args) {
     /* Build IP header */
     if (curr_params->is_ipv6 == true) {
         ip_tag = libnet_build_ipv6(
-            (curr_params->dscp << 2) & 0xFC,                    /* DSCP */
+            (curr_session->dscp << 2) & 0xFC,                   /* DSCP */
             0,                                                  /* Flow label */
             BFD_PKG_MIN_SIZE + LIBNET_UDP_H,                    /* Packet length */
             IPPROTO_UDP,                                        /* Next header(type of first extension layer or protocol in upper layer) */
@@ -365,7 +365,7 @@ void *bfd_session_run(void *args) {
     else {
         ip_tag = libnet_build_ipv4(
             LIBNET_IPV4_H + BFD_PKG_MIN_SIZE + LIBNET_UDP_H,    /* Packet length */
-            (curr_params->dscp << 2) & 0xFC,                    /* DSCP */
+            (curr_session->dscp << 2) & 0xFC,                   /* DSCP */
             0,                                                  /* IP ID */
             0,                                                  /* IP fragmentation */
             255,                                                /* TTL */
@@ -493,10 +493,59 @@ void *bfd_session_run(void *args) {
     /* Loop for processing incoming packets */
     while (true) {
 
-        /* Check for any session parameter change */
+        /* Check for any session parameter change below */
+
+        /* Check for new detect_mult */
         if ((curr_params->detect_mult != curr_session->detect_mult) && curr_params->detect_mult > 0) {
             pr_debug("Change of detect_mult requested, new value: %d\n", curr_params->detect_mult);
             curr_session->detect_mult = curr_params->detect_mult;
+        }
+
+        /* Check for new DSCP value */
+        if ((curr_params->dscp != curr_session->dscp) && curr_params->dscp > 0) {
+            pr_debug("Change of DSCP value requested, new value: %d\n", curr_params->dscp);
+            curr_session->dscp = curr_params->dscp;
+
+            /* Rebuild IP header with new DSCP */
+            if (curr_params->is_ipv6 == true) {
+                ip_tag = libnet_build_ipv6(
+                    (curr_session->dscp << 2) & 0xFC,                   /* DSCP */
+                    0,                                                  /* Flow label */
+                    BFD_PKG_MIN_SIZE + LIBNET_UDP_H,                    /* Packet length */
+                    IPPROTO_UDP,                                        /* Next header(type of first extension layer or protocol in upper layer) */
+                    255,                                                /* Hop limit(kind of like TTL) */
+                    src_ipv6,                                           /* Source IP address */
+                    dst_ipv6,                                           /* Destination IP address */
+                    NULL,                                               /* Payload (filled at upper layer) */
+                    0,                                                  /* Payload size */
+                    l,                                                  /* libnet handle */
+                    ip_tag);                                            /* libnet tag */
+
+                    if (ip_tag == -1) {
+                        fprintf(stderr, "Can't build IP header: %s\n", libnet_geterror(l));
+                        continue;
+                    }
+            } else {
+                ip_tag = libnet_build_ipv4(
+                    LIBNET_IPV4_H + BFD_PKG_MIN_SIZE + LIBNET_UDP_H,    /* Packet length */
+                    (curr_session->dscp << 2) & 0xFC,                   /* DSCP */
+                    0,                                                  /* IP ID */
+                    0,                                                  /* IP fragmentation */
+                    255,                                                /* TTL */
+                    IPPROTO_UDP,                                        /* Upper layer protocol */
+                    0,                                                  /* Checksum */
+                    src_ipv4,                                           /* Source IP address */
+                    dst_ipv4,                                           /* Destination IP address */
+                    NULL,                                               /* Payload (filled at upper layer) */
+                    0,                                                  /* Payload size */
+                    l,                                                  /* libnet handle */
+                    ip_tag);                                            /* libnet tag */
+
+                if (ip_tag == -1) {
+                    fprintf(stderr, "Can't build IP header: %s\n", libnet_geterror(l));
+                    continue;
+                }
+            }
         }
 
         /* Check our socket for data */
