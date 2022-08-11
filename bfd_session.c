@@ -72,6 +72,7 @@ __thread struct bfd_timer tx_timer;
 __thread struct sigevent tx_sev;
 __thread struct itimerspec tx_ts;
 __thread struct bfd_session_node session_node;
+__thread struct bfd_session_params session_parameters;      /* Copy of the session parameters */
 
 /* Forward declarations */
 void tx_timeout_handler(union sigval sv);
@@ -109,6 +110,22 @@ int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us) {
 /* Entry point of a new BFD session */
 void *bfd_session_run(void *args) {
 
+    /* Get a pointer to data passed to session start interface */
+    struct bfd_thread *current_thread = (struct bfd_thread *)args;
+
+    /* Copy the session parameters */
+    memset(&session_parameters, 0, sizeof(struct bfd_session_params));
+    memcpy(&session_parameters, current_thread->session_params, sizeof(struct bfd_session_params));
+
+    /* Replace the pointer with one to our copy */
+    current_thread->session_params = &session_parameters;
+
+    /* Setup some more useful pointers */
+    struct bfd_session_params *curr_params = &session_parameters;
+    struct bfd_session new_session;
+    curr_params->current_session = &new_session;
+    struct bfd_session *curr_session = curr_params->current_session;
+
     /* Setup buffer and header structs for received packets */
     uint8_t recv_buf[BFD_PKG_MIN_SIZE];
     struct iovec recv_iov[1] = { { recv_buf, sizeof(recv_buf) } };
@@ -122,13 +139,6 @@ void *bfd_session_run(void *args) {
         .msg_controllen = sizeof(recv_ctrldata)
     };
     int flag_enable = 1;
-
-    /* Useful pointers */
-    struct bfd_thread *current_thread = (struct bfd_thread *)args;
-    struct bfd_session_params *curr_params = current_thread->session_params;
-    struct bfd_session new_session;
-    curr_params->current_session = &new_session;
-    struct bfd_session *curr_session = curr_params->current_session;
 
     /* Initialize timer data */
     tx_timer.sess_params = curr_params;
@@ -741,7 +751,7 @@ bfd_session_id bfd_session_start(struct bfd_session_params *params) {
         return new_thread.ret;
 
     /* Copy the session id */
-    params->current_session->session_id = session_id;
+    new_thread.session_params->current_session->session_id = session_id;
 
     return session_id;
 }
