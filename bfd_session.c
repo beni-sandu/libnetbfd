@@ -80,8 +80,8 @@ void thread_cleanup(void *args);
 int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us);
 void *bfd_session_run(void *args);
 
-int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us) {
-
+int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us)
+{
     struct pollfd fds[1];
     struct timespec ts;
     int ret;
@@ -108,8 +108,8 @@ int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us) {
 }
 
 /* Entry point of a new BFD session */
-void *bfd_session_run(void *args) {
-
+void *bfd_session_run(void *args)
+{
     /* Get a pointer to data passed to session start interface */
     struct bfd_thread *current_thread = (struct bfd_thread *)args;
 
@@ -784,8 +784,8 @@ void *bfd_session_run(void *args) {
  * Create a new BFD session, returns a session id
  * on successful creation, -1 otherwise
  */
-bfd_session_id bfd_session_start(struct bfd_session_params *params) {
-
+bfd_session_id bfd_session_start(struct bfd_session_params *params)
+{
     pthread_t session_id;
     int ret;
     struct bfd_thread new_thread;
@@ -814,8 +814,8 @@ bfd_session_id bfd_session_start(struct bfd_session_params *params) {
 }
 
 /* Stop a BFD session */
-void bfd_session_stop(bfd_session_id session_id) {
-
+void bfd_session_stop(bfd_session_id session_id)
+{
     if (session_id > 0) {
 
         /* Remove session from list */
@@ -829,8 +829,8 @@ void bfd_session_stop(bfd_session_id session_id) {
     }
 }
 
-void tx_timeout_handler(union sigval sv) {
-
+void tx_timeout_handler(union sigval sv)
+{
     struct bfd_timer *timer_data = sv.sival_ptr;
 
     uint32_t jitt_maxpercent;
@@ -868,8 +868,8 @@ void tx_timeout_handler(union sigval sv) {
     bfd_update_timer(tx_jitter, tx_ts, timer_data);
 }
 
-void thread_cleanup(void *args) {
-
+void thread_cleanup(void *args)
+{
     struct bfd_timer *timer = (struct bfd_timer *)args;
 
     /* Cleanup allocated data */

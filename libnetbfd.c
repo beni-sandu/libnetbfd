@@ -62,15 +62,15 @@ void bfd_session_change_param(bfd_session_id session_id, enum bfd_param param, u
             pthread_rwlock_unlock(&rwlock);
 
             break;
-        
+
         case PARAM_DETECT_MULT:
-            
+
             pthread_rwlock_wrlock(&rwlock);
             session->session_params->detect_mult = new_value;
             pthread_rwlock_unlock(&rwlock);
 
             break;
-        
+
         default:
             fprintf(stderr, "Invalid bfd_session_change_param command.\n");
             break;
@@ -78,8 +78,8 @@ void bfd_session_change_param(bfd_session_id session_id, enum bfd_param param, u
 }
 
 void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
-    uint32_t des_min_tx_interval, uint32_t req_min_rx_interval) {
-
+    uint32_t des_min_tx_interval, uint32_t req_min_rx_interval)
+{
     struct bfd_session_node *session = bfd_find_session(session_id);
 
     if (session == NULL) {
@@ -144,8 +144,8 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
     }
 }
 
-int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *timer_data) {
-
+int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *timer_data)
+{
     /* Update timer interval */
     ts->it_interval.tv_sec = interval_us / 1000000;
     ts->it_interval.tv_nsec = interval_us % 1000000 * 1000;
@@ -160,8 +160,8 @@ int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *t
     return EXIT_SUCCESS;
 }
 
-const char *state2string(enum bfd_state state) {
-
+const char *state2string(enum bfd_state state)
+{
     switch(state) {
         case BFD_STATE_UP:
             return "BFD_STATE_UP";
@@ -176,8 +176,8 @@ const char *state2string(enum bfd_state state) {
     return "UNKNOWN BFD STATE";
 }
 
-bool is_ip_valid(char *ip, bool is_ipv6) {
-
+bool is_ip_valid(char *ip, bool is_ipv6)
+{
     if (is_ipv6 == true) {
         struct sockaddr_in6 sa;
 
@@ -202,14 +202,14 @@ bool is_ip_valid(char *ip, bool is_ipv6) {
     return false;
 }
 
-void bfd_add_session(struct bfd_session_node **head_ref, struct bfd_session_node *new_node) {
-
+void bfd_add_session(struct bfd_session_node **head_ref, struct bfd_session_node *new_node)
+{
     new_node->next = (*head_ref);
     (*head_ref) = new_node;
 }
 
-void bfd_remove_session(struct bfd_session_node **head_ref, bfd_session_id session_id) {
-
+void bfd_remove_session(struct bfd_session_node **head_ref, bfd_session_id session_id)
+{
     struct bfd_session_node *it = *head_ref, *prev;
 
     if (it != NULL && it->session_params->current_session->session_id == session_id) {
@@ -228,8 +228,8 @@ void bfd_remove_session(struct bfd_session_node **head_ref, bfd_session_id sessi
     prev->next = it->next;
 }
 
-struct bfd_session_node *bfd_find_session(bfd_session_id session_id) {
-
+struct bfd_session_node *bfd_find_session(bfd_session_id session_id)
+{
     pthread_rwlock_rdlock(&rwlock);
     struct bfd_session_node *it = head;
 
@@ -245,8 +245,8 @@ struct bfd_session_node *bfd_find_session(bfd_session_id session_id) {
     return NULL;
 }
 
-void bfd_session_print_stats(bfd_session_id session_id) {
-
+void bfd_session_print_stats(bfd_session_id session_id)
+{
     time_t now;
     struct tm *local = NULL;
     char timestamp[100];
@@ -280,8 +280,8 @@ void bfd_session_print_stats(bfd_session_id session_id) {
     printf("---------------------------------------------\n");
 }
 
-void bfd_session_print_stats_log(bfd_session_id session_id) {
-
+void bfd_session_print_stats_log(bfd_session_id session_id)
+{
     time_t now;
     struct tm *local = NULL;
     char timestamp[100];
@@ -330,13 +330,13 @@ void bfd_session_print_stats_log(bfd_session_id session_id) {
 }
 
 /* Return library version */
-const char *netbfd_lib_version(void) {
-
+const char *netbfd_lib_version(void)
+{
     return ("libnetbfd version "LIBNETBFD_VERSION);
 }
 
-int get_ttl(struct msghdr *recv_msg) {
-
+int get_ttl(struct msghdr *recv_msg)
+{
     int ttl = -1;
 
     for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(recv_msg); cmsg != NULL; cmsg = CMSG_NXTHDR(recv_msg, cmsg))
@@ -349,8 +349,8 @@ int get_ttl(struct msghdr *recv_msg) {
     return ttl;
 }
 
-void print_log(char *log_file, const char *format, ...) {
-
+void print_log(char *log_file, const char *format, ...)
+{
     va_list arg;
     time_t now;
     struct tm *local = NULL;
