@@ -63,6 +63,11 @@ enum bfd_modify_cmd {
     SESSION_CHANGE_BFD_INTERVALS    = 2,
 };
 
+enum bfd_param {
+    PARAM_DSCP                      = 0,
+    PARAM_DETECT_MULT               = 1,
+};
+
 /* Data passed to per thread timer */
 struct bfd_timer {
     bool is_timer_created;
@@ -108,6 +113,7 @@ void bfd_remove_session(struct bfd_session_node **head_ref, bfd_session_id sessi
 const char *netbfd_lib_version(void);
 int get_ttl(struct msghdr *recv_msg);
 void print_log(char *log_file, const char *format, ...) __attribute__ ((format (gnu_printf, 2, 3)));
+void bfd_session_change_param(bfd_session_id session_id, enum bfd_param param, uint32_t new_value);
 
 #ifdef __cplusplus
 }

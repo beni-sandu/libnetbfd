@@ -43,6 +43,40 @@
 struct bfd_session_node *head = NULL;
 pthread_rwlock_t rwlock = PTHREAD_RWLOCK_INITIALIZER;
 
+void bfd_session_change_param(bfd_session_id session_id, enum bfd_param param, uint32_t new_value)
+{
+    /* Find the session that we're interested in */
+    struct bfd_session_node *session = bfd_find_session(session_id);
+
+    if (session == NULL) {
+        fprintf(stderr, "Could not find a valid BFD session with that id.\n");
+        return;
+    }
+
+    switch (param) {
+
+        case PARAM_DSCP:
+
+            pthread_rwlock_wrlock(&rwlock);
+            session->session_params->dscp = new_value;
+            pthread_rwlock_unlock(&rwlock);
+
+            break;
+        
+        case PARAM_DETECT_MULT:
+            
+            pthread_rwlock_wrlock(&rwlock);
+            session->session_params->detect_mult = new_value;
+            pthread_rwlock_unlock(&rwlock);
+
+            break;
+        
+        default:
+            fprintf(stderr, "Invalid bfd_session_change_param command.\n");
+            break;
+    }
+}
+
 void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
     uint32_t des_min_tx_interval, uint32_t req_min_rx_interval) {
 

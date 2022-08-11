@@ -115,6 +115,8 @@ struct bfd_session {
     uint16_t src_port;
     uint16_t dst_port;
     bfd_session_id session_id;
+    uint8_t dscp;
+    uint8_t detect_mult;
 };
 
 /* Function prototypes */

@@ -305,6 +305,8 @@ void *bfd_session_run(void *args) {
     curr_session->final_detection_time = 0;
     curr_session->final_op_tx = 0;
     curr_session->dst_port = BFD_CTRL_PORT;
+    curr_session->dscp = curr_params->dscp;
+    curr_session->detect_mult = curr_params->detect_mult;
 
     /* Configure session source port */
     if (curr_params->src_port > 0)
@@ -317,7 +319,7 @@ void *bfd_session_run(void *args) {
 
     /* Build initial BFD control packet */
     bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,
-                curr_params->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_session->des_min_tx_interval,
+                curr_session->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_session->des_min_tx_interval,
                 curr_session->req_min_rx_interval, &pkt);
 
     /* Build UDP header */
@@ -490,6 +492,12 @@ void *bfd_session_run(void *args) {
 
     /* Loop for processing incoming packets */
     while (true) {
+
+        /* Check for any session parameter change */
+        if ((curr_params->detect_mult != curr_session->detect_mult) && curr_params->detect_mult > 0) {
+            pr_debug("Change of detect_mult requested, new value: %d\n", curr_params->detect_mult);
+            curr_session->detect_mult = curr_params->detect_mult;
+        }
 
         /* Check our socket for data */
         ret = recvmsg_ppoll(sockfd, &recv_hdr, curr_session->detection_time);
@@ -696,7 +704,7 @@ void *bfd_session_run(void *args) {
 
                 /* Update packet data */
                 bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,
-                    curr_params->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_session->des_min_tx_interval,
+                    curr_session->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_session->des_min_tx_interval,
                     curr_session->req_min_rx_interval, &pkt);
 
                 /* Update UDP header */
@@ -791,7 +799,7 @@ void tx_timeout_handler(union sigval sv) {
 
     /* Update packet data */
     bfd_build_packet(curr_session->local_diag, curr_session->local_state, curr_session->local_poll, curr_session->local_final,
-        curr_params->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_session->des_min_tx_interval,
+        curr_session->detect_mult, curr_session->local_discr, curr_session->remote_discr, curr_session->des_min_tx_interval,
         curr_session->req_min_rx_interval, pkt);
 
     /* Update UDP header */
@@ -806,7 +814,7 @@ void tx_timeout_handler(union sigval sv) {
     }
 
     /* Apply jitter to TX transmit interval as per section 6.8.7 and start the timer for the next packet */
-    jitt_maxpercent = (curr_params->detect_mult == 1) ? 15 : 25;
+    jitt_maxpercent = (curr_session->detect_mult == 1) ? 15 : 25;
     tx_jitter = (curr_session->op_tx * (75 + ((uint32_t) random() % jitt_maxpercent))) / 100;
     bfd_update_timer(tx_jitter, tx_ts, timer_data);
 }
