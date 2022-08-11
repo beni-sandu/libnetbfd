@@ -123,7 +123,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
                 return;
             }
 
-            pr_debug("Parameter change requested for session [%s <--> %s], initiating Poll Sequence.\n", session->session_params->src_ip, session->session_params->dst_ip);
+            pr_debug("BFD interval change requested for session [%s <--> %s], initiating Poll Sequence.\n", session->session_params->src_ip, session->session_params->dst_ip);
 
             /* Is it a good idea to change both of them at the same time? Time(testing) will tell */
             pthread_rwlock_wrlock(&rwlock);
