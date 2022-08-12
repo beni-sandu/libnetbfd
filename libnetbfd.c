@@ -377,3 +377,75 @@ void print_log(char *log_file, const char *format, ...)
     va_end(arg);
     fclose(file);
 }
+
+/*
+ * Check if provided IP address is assigned on the local machine
+ * and if it is, return true only if the interface that is using it
+ * is UP. For any other scenario, return false.
+ */
+bool is_ip_live(char *ip_addr, bool is_ipv6)
+{
+    struct ifaddrs *addrs, *ifp;
+
+    /* Get a list of network interfaces on the system */
+    if (getifaddrs(&addrs) == -1) {
+        perror("getifaddrs");
+        return false;
+    }
+
+    /* Walk through the list and find the interface that uses our IP */
+    ifp = addrs;
+
+    while (ifp != NULL) {
+        if (is_ipv6 == true) {
+            if (ifp->ifa_addr && ifp->ifa_addr->sa_family == AF_INET6) {
+                struct sockaddr_in6 *sa = (struct sockaddr_in6 *)ifp->ifa_addr;
+                char conv_ip[INET6_ADDRSTRLEN];
+
+                inet_ntop(AF_INET6, &(sa->sin6_addr), conv_ip, INET6_ADDRSTRLEN);
+
+                if (strcmp(ip_addr, conv_ip) == 0) {
+
+                    /* We found the interface, check if it's up */
+                    if (ifp->ifa_flags & IFF_UP) {
+                        pr_debug("Interface %s with IP %s is UP.\n", ifp->ifa_name, ip_addr);
+                        freeifaddrs(addrs);
+                        return true;
+                    } else {
+                        pr_debug("Interface %s with IP %s is DOWN.\n", ifp->ifa_name, ip_addr);
+                        freeifaddrs(addrs);
+                        return false;
+                    }
+                }
+            }
+        } else {
+            if (ifp->ifa_addr && ifp->ifa_addr->sa_family == AF_INET) {
+                struct sockaddr_in *sa = (struct sockaddr_in *)ifp->ifa_addr;
+                char conv_ip[INET_ADDRSTRLEN];
+
+                inet_ntop(AF_INET, &(sa->sin_addr), conv_ip, INET_ADDRSTRLEN);
+
+                if (strcmp(ip_addr, conv_ip) == 0) {
+
+                    /* We found the interface, check if it's up */
+                    if (ifp->ifa_flags & IFF_UP) {
+                        pr_debug("Interface %s with IP %s is UP.\n", ifp->ifa_name, ip_addr);
+                        freeifaddrs(addrs);
+                        return true;
+                    } else {
+                        pr_debug("Interface %s with IP %s is DOWN.\n", ifp->ifa_name, ip_addr);
+                        freeifaddrs(addrs);
+                        return false;
+                    }
+                }
+            }
+        }
+        ifp = ifp->ifa_next;
+    }
+
+    /* No interface with the provided IP found */
+    freeifaddrs(addrs);
+
+    return false;
+}
+

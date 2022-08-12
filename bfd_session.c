@@ -222,6 +222,27 @@ void *bfd_session_run(void *args)
         pthread_exit(NULL);
     }
 
+    /*
+     * Check if IP address is actually used on the local machine AND if the interface
+     * is UP, otherwise don't try to start the session.
+     */
+
+    if (curr_params->is_ipv6 == true) {
+        if (is_ip_live(curr_params->src_ip, true) == false) {
+            fprintf(stderr, "Provided source IP is not assigned or the interface is DOWN.\n");
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
+        }
+    } else {
+        if (is_ip_live(curr_params->src_ip, false) == false) {
+            fprintf(stderr, "Provided source IP is not assigned or the interface is DOWN.\n");
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
+        }
+    }
+
     /* libnet init */
     if (curr_params->is_ipv6 == true) {
         l = libnet_init(
