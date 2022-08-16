@@ -214,6 +214,37 @@ void *bfd_session_run(void *args)
         close(ns_fd);
     }
 
+    /* Check if provided IP addresses are valid before doing anything else with them */
+    if (curr_params->is_ipv6 == true) {
+        if (is_ip_valid(curr_params->src_ip, true) == false) {
+            fprintf(stderr, "Invalid source IPv6 address: %s\n", curr_params->src_ip);
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
+        }
+
+        if (is_ip_valid(curr_params->dst_ip, true) == false) {
+            fprintf(stderr, "Invalid destination IPv6 address: %s\n", curr_params->dst_ip);
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
+        }
+    } else {
+        if (is_ip_valid(curr_params->src_ip, false) == false) {
+            fprintf(stderr, "Invalid source IPv4 address: %s\n", curr_params->src_ip);
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
+        }
+
+        if (is_ip_valid(curr_params->dst_ip, false) == false) {
+            fprintf(stderr, "Invalid destination IPv4 address: %s\n", curr_params->dst_ip);
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
+        }
+    }
+
     /* Make sure source/destination IPs are different */
     if (strcmp(curr_params->src_ip, curr_params->dst_ip) == 0) {
         fprintf(stderr, "Cannot use same IP address for both source/destination.\n");
@@ -223,8 +254,8 @@ void *bfd_session_run(void *args)
     }
 
     /*
-     * Check if IP address is actually used on the local machine AND if the interface
-     * is UP, otherwise don't try to start the session.
+     * Check if source IP address is assigned on the local machine AND if
+     * the interface is UP, otherwise don't try to start the session.
      */
 
     if (curr_params->is_ipv6 == true) {
@@ -243,7 +274,7 @@ void *bfd_session_run(void *args)
         }
     }
 
-    /* libnet init */
+    /* Everything is fine with the IPs, we can now init libnet */
     if (curr_params->is_ipv6 == true) {
         l = libnet_init(
             LIBNET_RAW6,                                /* injection type */
@@ -256,21 +287,8 @@ void *bfd_session_run(void *args)
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
-
-        if (is_ip_valid(curr_params->src_ip, true) == false) {
-            fprintf(stderr, "Bad source IPv6 address: %s\n", curr_params->src_ip);
-            current_thread->ret = -1;
-            sem_post(&current_thread->sem);
-            pthread_exit(NULL);
-        }
+        /* Convert IP strings to network format */
         src_ipv6 = libnet_name2addr6(l, curr_params->src_ip, LIBNET_DONT_RESOLVE);
-
-        if (is_ip_valid(curr_params->dst_ip, true) == false) {
-            fprintf(stderr, "Bad destination IPv6 address: %s\n", curr_params->dst_ip);
-            current_thread->ret = -1;
-            sem_post(&current_thread->sem);
-            pthread_exit(NULL);
-        }
         dst_ipv6 = libnet_name2addr6(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE);
     }
     else {
@@ -285,21 +303,8 @@ void *bfd_session_run(void *args)
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
-
-        if (is_ip_valid(curr_params->src_ip, false) == false) {
-            fprintf(stderr, "Bad source IPv4 address: %s\n", curr_params->src_ip);
-            current_thread->ret = -1;
-            sem_post(&current_thread->sem);
-            pthread_exit(NULL);
-        }
+        /* Convert IP strings to network format */
         src_ipv4 = libnet_name2addr4(l, curr_params->src_ip, LIBNET_DONT_RESOLVE);
-
-        if (is_ip_valid(curr_params->dst_ip, false) == false) {
-            fprintf(stderr, "Bad destination IPv4 address: %s\n", curr_params->dst_ip);
-            current_thread->ret = -1;
-            sem_post(&current_thread->sem);
-            pthread_exit(NULL);
-        }
         dst_ipv4 = libnet_name2addr4(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE);
     }
 
