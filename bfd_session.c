@@ -322,7 +322,7 @@ void *bfd_session_run(void *args)
     curr_session->local_discr = (uint32_t)(random());
     curr_session->local_state = BFD_STATE_DOWN;
     curr_session->remote_discr = 0;
-    curr_session->remote_min_rx_interval = 0;
+    curr_session->remote_min_rx_interval = 1;
     curr_session->remote_state = BFD_STATE_DOWN;
     curr_session->detection_time = 1000000;
     curr_session->local_poll = false;
