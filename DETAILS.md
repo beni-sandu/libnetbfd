@@ -93,6 +93,18 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
     uint32_t des_min_tx_interval, uint32_t req_min_rx_interval);
 
 
+/*
+ * Change parameter of running session.
+ *
+ * @session_id:             BFD session id
+ * @param:                  parameter that needs to be changed, currently supporting:
+ *                                  - PARAM_DSCP - IP differentiated services code point
+ *                                  - PARAM_DETECT_MULT - BFD session Detection Multiplier
+ * @new_value:              updated value for the parameter that needs to be changed
+ */
+void bfd_session_change_param(bfd_session_id session_id, enum bfd_param param, uint32_t new_value);
+
+
 /* 
  * Stop a BFD session that has been started.
  * 
