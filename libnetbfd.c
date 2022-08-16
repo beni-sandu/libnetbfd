@@ -210,7 +210,7 @@ void bfd_add_session(struct bfd_session_node **head_ref, struct bfd_session_node
 
 void bfd_remove_session(struct bfd_session_node **head_ref, bfd_session_id session_id)
 {
-    struct bfd_session_node *it = *head_ref, *prev;
+    struct bfd_session_node *it = *head_ref, *prev = NULL;
 
     if (it != NULL && it->session_params->current_session->session_id == session_id) {
         *head_ref = it->next;
