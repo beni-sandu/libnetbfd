@@ -589,6 +589,9 @@ void *bfd_session_run(void *args)
                 if (curr_session->op_tx < 1000000)
                     curr_session->op_tx = 1000000;
 
+                /* Clear remote discriminator value */
+                curr_session->remote_discr = 0;
+
                 if (curr_params->callback != NULL) {
                     callback_status.cb_ret = 1;
                     curr_params->callback(&callback_status);
