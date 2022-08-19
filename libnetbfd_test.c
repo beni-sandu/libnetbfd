@@ -16,6 +16,7 @@ void bfd_callback(struct cb_status *status) {
      *  3 - Session is going to UP
      *  4 - Remote signaled going DOWN
      *  5 - Remote signaled going ADMIN_DOWN
+     *  6 - Source IP is not assigned, or the interface that is using it is DOWN
      */
 
     switch (status->cb_ret) {
@@ -34,6 +35,9 @@ void bfd_callback(struct cb_status *status) {
         case 5:
             printf("Remote [%s] signaled going ADMIN_DOWN\n", status->session_params->dst_ip);
             break;
+        case 6:
+            printf("Provided source IP is not assigned or the interface is DOWN.\n");
+            break;
     }
 }
 
@@ -44,6 +48,7 @@ void bfd_callback_log(struct cb_status *status) {
      *  3 - Session is going to UP
      *  4 - Remote signaled going DOWN
      *  5 - Remote signaled going ADMIN_DOWN
+     *  6 - Source IP is not assigned, or the interface that is using it is DOWN
      */
 
     switch (status->cb_ret) {
@@ -61,6 +66,9 @@ void bfd_callback_log(struct cb_status *status) {
             break;
         case 5:
             print_log(status->session_params->log_file, "Remote [%s] signaled going ADMIN_DOWN\n", status->session_params->dst_ip);
+            break;
+        case 6:
+            print_log(status->session_params->log_file, "Provided source IP is not assigned or the interface is DOWN.\n");
             break;
     }
 }

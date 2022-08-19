@@ -156,6 +156,7 @@ void *bfd_session_run(void *args)
      *  3 - Session is going to UP
      *  4 - Remote signaled going DOWN
      *  5 - Remote signaled going ADMIN_DOWN
+     *  6 - Source IP is not assigned, or the interface that is using it is DOWN
      */
     callback_status.cb_ret = 0;
     callback_status.session_params = curr_params;
@@ -254,23 +255,27 @@ void *bfd_session_run(void *args)
     }
 
     /*
-     * Check if source IP address is assigned on the local machine AND if
-     * the interface is UP, otherwise don't try to start the session.
+     * Check if source IP address is assigned on the local machine and if
+     * the interface is UP.
      */
 
     if (curr_params->is_ipv6 == true) {
         if (is_ip_live(curr_params->src_ip, true) == false) {
-            fprintf(stderr, "Provided source IP is not assigned or the interface is DOWN.\n");
-            current_thread->ret = -1;
-            sem_post(&current_thread->sem);
-            pthread_exit(NULL);
+            pr_debug("Provided source IP is not assigned or the interface is DOWN.\n");
+
+            if (curr_params->callback != NULL) {
+                callback_status.cb_ret = 6;
+                curr_params->callback(&callback_status);
+            }
         }
     } else {
         if (is_ip_live(curr_params->src_ip, false) == false) {
-            fprintf(stderr, "Provided source IP is not assigned or the interface is DOWN.\n");
-            current_thread->ret = -1;
-            sem_post(&current_thread->sem);
-            pthread_exit(NULL);
+            pr_debug("Provided source IP is not assigned or the interface is DOWN.\n");
+
+            if (curr_params->callback != NULL) {
+                callback_status.cb_ret = 6;
+                curr_params->callback(&callback_status);
+            }
         }
     }
 
