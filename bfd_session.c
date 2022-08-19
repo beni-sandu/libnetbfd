@@ -279,6 +279,71 @@ void *bfd_session_run(void *args)
         }
     }
 
+    /* Create an UDP socket */
+    if (curr_params->is_ipv6 == true) {
+        if ((sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+            perror("socket");
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
+        }
+    }
+    else {
+        if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+            perror("socket");
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
+        }
+    }
+
+    /* Store the sockfd so we can close it when we're done */
+    tx_timer.sess_params->current_session->sockfd = sockfd;
+
+    /* Configure socket to read TTL value */
+    if (setsockopt(sockfd, IPPROTO_IP, IP_RECVTTL, &flag_enable, sizeof(flag_enable)) < 0) {
+        fprintf(stderr, "Can't configure socket to read TTL.\n");
+        current_thread->ret = -1;
+        sem_post(&current_thread->sem);
+        pthread_exit(NULL);
+    }
+
+    /* Make socket address reusable */
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &flag_enable, sizeof(flag_enable)) < 0) {
+        fprintf(stderr, "Can't configure socket address to be reused.\n");
+        current_thread->ret = -1;
+        sem_post(&current_thread->sem);
+        pthread_exit(NULL);
+    }
+
+    /* Bind the socket */
+    if (curr_params->is_ipv6 == true) {
+        memset(&sav6, 0, sizeof(struct sockaddr_in6));
+        sav6.sin6_family = AF_INET6;
+        inet_pton(sav6.sin6_family, curr_params->src_ip, &(sav6.sin6_addr));
+        sav6.sin6_port = htons(BFD_CTRL_PORT);
+
+        if (bind(sockfd, (struct sockaddr *)&sav6, sizeof(sav6)) == -1) {
+            perror("bind");
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
+        }
+    }
+    else {
+        memset(&sav4, 0, sizeof(struct sockaddr_in));
+        sav4.sin_family = AF_INET;
+        inet_pton(sav4.sin_family, curr_params->src_ip, &(sav4.sin_addr));
+        sav4.sin_port = htons(BFD_CTRL_PORT);
+
+        if (bind(sockfd, (struct sockaddr *)&sav4, sizeof(sav4)) == -1) {
+            perror("bind");
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
+        }
+    }
+
     /* Everything is fine with the IPs, we can now init libnet */
     if (curr_params->is_ipv6 == true) {
         l = libnet_init(
@@ -440,71 +505,6 @@ void *bfd_session_run(void *args)
     /* Timer should be created, but we still get a NULL pointer sometimes */
     tx_timer.is_timer_created = true;
     pr_debug("TX timer ID: %p\n", tx_timer.timer_id);
-
-    /* Create an UDP socket */
-    if (curr_params->is_ipv6 == true) {
-        if ((sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
-            perror("socket");
-            current_thread->ret = -1;
-            sem_post(&current_thread->sem);
-            pthread_exit(NULL);
-        }
-    }
-    else {
-        if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
-            perror("socket");
-            current_thread->ret = -1;
-            sem_post(&current_thread->sem);
-            pthread_exit(NULL);
-        }
-    }
-
-    /* Store the sockfd so we can close it when we're done */
-    tx_timer.sess_params->current_session->sockfd = sockfd;
-
-    /* Configure socket to read TTL value */
-    if (setsockopt(sockfd, IPPROTO_IP, IP_RECVTTL, &flag_enable, sizeof(flag_enable)) < 0) {
-        fprintf(stderr, "Can't configure socket to read TTL.\n");
-        current_thread->ret = -1;
-        sem_post(&current_thread->sem);
-        pthread_exit(NULL);
-    }
-
-    /* Make socket address reusable */
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &flag_enable, sizeof(flag_enable)) < 0) {
-        fprintf(stderr, "Can't configure socket address to be reused.\n");
-        current_thread->ret = -1;
-        sem_post(&current_thread->sem);
-        pthread_exit(NULL);
-    }
-
-    /* Bind the socket */
-    if (curr_params->is_ipv6 == true) {
-        memset(&sav6, 0, sizeof(struct sockaddr_in6));
-        sav6.sin6_family = AF_INET6;
-        inet_pton(sav6.sin6_family, curr_params->src_ip, &(sav6.sin6_addr));
-        sav6.sin6_port = htons(BFD_CTRL_PORT);
-
-        if (bind(sockfd, (struct sockaddr *)&sav6, sizeof(sav6)) == -1) {
-            perror("bind");
-            current_thread->ret = -1;
-            sem_post(&current_thread->sem);
-            pthread_exit(NULL);
-        }
-    }
-    else {
-        memset(&sav4, 0, sizeof(struct sockaddr_in));
-        sav4.sin_family = AF_INET;
-        inet_pton(sav4.sin_family, curr_params->src_ip, &(sav4.sin_addr));
-        sav4.sin_port = htons(BFD_CTRL_PORT);
-
-        if (bind(sockfd, (struct sockaddr *)&sav4, sizeof(sav4)) == -1) {
-            perror("bind");
-            current_thread->ret = -1;
-            sem_post(&current_thread->sem);
-            pthread_exit(NULL);
-        }
-    }
 
     /* Copy params pointer to session node */
     session_node.session_params = curr_params;
