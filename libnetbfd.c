@@ -46,10 +46,12 @@ pthread_rwlock_t rwlock = PTHREAD_RWLOCK_INITIALIZER;
 void bfd_session_change_param(bfd_session_id session_id, enum bfd_param param, uint32_t new_value)
 {
     /* Find the session that we're interested in */
+    pthread_rwlock_wrlock(&rwlock);
     struct bfd_session_node *session = bfd_find_session(session_id);
 
     if (session == NULL) {
         fprintf(stderr, "Could not find a valid BFD session with that id.\n");
+        pthread_rwlock_unlock(&rwlock);
         return;
     }
 
@@ -57,7 +59,6 @@ void bfd_session_change_param(bfd_session_id session_id, enum bfd_param param, u
 
         case PARAM_DSCP:
 
-            pthread_rwlock_wrlock(&rwlock);
             session->session_params->dscp = new_value;
             pthread_rwlock_unlock(&rwlock);
 
@@ -65,7 +66,6 @@ void bfd_session_change_param(bfd_session_id session_id, enum bfd_param param, u
 
         case PARAM_DETECT_MULT:
 
-            pthread_rwlock_wrlock(&rwlock);
             session->session_params->detect_mult = new_value;
             pthread_rwlock_unlock(&rwlock);
 
@@ -73,6 +73,7 @@ void bfd_session_change_param(bfd_session_id session_id, enum bfd_param param, u
 
         default:
             fprintf(stderr, "Invalid bfd_session_change_param command.\n");
+            pthread_rwlock_unlock(&rwlock);
             break;
     }
 }
@@ -80,17 +81,18 @@ void bfd_session_change_param(bfd_session_id session_id, enum bfd_param param, u
 void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
     uint32_t des_min_tx_interval, uint32_t req_min_rx_interval)
 {
+    pthread_rwlock_wrlock(&rwlock);
     struct bfd_session_node *session = bfd_find_session(session_id);
 
     if (session == NULL) {
         fprintf(stderr, "Could not find a valid BFD session with that id.\n");
+        pthread_rwlock_unlock(&rwlock);
         return;
     }
 
     switch (cmd) {
         case SESSION_ENABLE_ADMIN_DOWN:
 
-            pthread_rwlock_wrlock(&rwlock);
             if (session->session_params->current_session->local_state != BFD_STATE_ADMIN_DOWN) {
                 pr_debug("Putting session: %ld into ADMIN_DOWN.\n", session_id);
                 session->session_params->current_session->local_state = BFD_STATE_ADMIN_DOWN;
@@ -104,7 +106,6 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
 
         case SESSION_DISABLE_ADMIN_DOWN:
 
-            pthread_rwlock_wrlock(&rwlock);
             if (session->session_params->current_session->local_state == BFD_STATE_ADMIN_DOWN) {
                 pr_debug("Getting session: %ld out of ADMIN_DOWN.\n", session_id);
                 session->session_params->current_session->local_state = BFD_STATE_DOWN;
@@ -120,13 +121,13 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
 
             if (des_min_tx_interval == 0 && req_min_rx_interval == 0) {
                 fprintf(stderr, "Both parameters are 0, nothing to be done.\n");
+                pthread_rwlock_unlock(&rwlock);
                 return;
             }
 
             pr_debug("BFD interval change requested for session [%s <--> %s], initiating Poll Sequence.\n", session->session_params->src_ip, session->session_params->dst_ip);
 
             /* Is it a good idea to change both of them at the same time? Time(testing) will tell */
-            pthread_rwlock_wrlock(&rwlock);
             if (des_min_tx_interval > 0)
                 session->session_params->des_min_tx_interval = des_min_tx_interval;
 
@@ -140,6 +141,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
 
         default:
             fprintf(stderr, "Invalid bfd_session_modify command.\n");
+            pthread_rwlock_unlock(&rwlock);
             break;
     }
 }
@@ -230,18 +232,14 @@ void bfd_remove_session(struct bfd_session_node **head_ref, bfd_session_id sessi
 
 struct bfd_session_node *bfd_find_session(bfd_session_id session_id)
 {
-    pthread_rwlock_rdlock(&rwlock);
     struct bfd_session_node *it = head;
 
     while (it != NULL) {
-        if (it->session_params->current_session->session_id == session_id) {
-            pthread_rwlock_unlock(&rwlock);
+        if (it->session_params->current_session->session_id == session_id)
             return it;
-        }
         it = it->next;
     }
 
-    pthread_rwlock_unlock(&rwlock);
     return NULL;
 }
 
@@ -250,10 +248,13 @@ void bfd_session_print_stats(bfd_session_id session_id)
     time_t now;
     struct tm *local = NULL;
     char timestamp[100];
+
+    pthread_rwlock_rdlock(&rwlock);
     struct bfd_session_node *session = bfd_find_session(session_id);
 
     if (session == NULL) {
         fprintf(stderr, "Could not find a valid BFD session with that id.\n");
+        pthread_rwlock_unlock(&rwlock);
         return;
     }
 
@@ -278,6 +279,8 @@ void bfd_session_print_stats(bfd_session_id session_id)
     printf("%-25s %d\n", "Operational TX:", session->session_params->current_session->op_tx);
     printf("%-25s %d\n", "Detection time:", session->session_params->current_session->detection_time);
     printf("---------------------------------------------\n");
+
+    pthread_rwlock_unlock(&rwlock);
 }
 
 void bfd_session_print_stats_log(bfd_session_id session_id)
@@ -286,21 +289,26 @@ void bfd_session_print_stats_log(bfd_session_id session_id)
     struct tm *local = NULL;
     char timestamp[100];
     FILE *file = NULL;
+
+    pthread_rwlock_rdlock(&rwlock);
     struct bfd_session_node *session = bfd_find_session(session_id);
 
     if (session == NULL) {
         fprintf(stderr, "Could not find a valid BFD session with that id.\n");
+        pthread_rwlock_unlock(&rwlock);
         return;
     }
 
     /* Open log file */
-    if (strlen(session->session_params->log_file) == 0)
+    if (strlen(session->session_params->log_file) == 0) {
+        pthread_rwlock_unlock(&rwlock);
         return;
-    else {
+    } else {
         file = fopen(session->session_params->log_file, "a");
 
         if (file == NULL) {
             perror("fopen");
+            pthread_rwlock_unlock(&rwlock);
             return;
         }
     }
@@ -327,6 +335,8 @@ void bfd_session_print_stats_log(bfd_session_id session_id)
     fprintf(file, "%-25s %d\n", "Detection time:", session->session_params->current_session->detection_time);
     fprintf(file, "---------------------------------------------\n");
     fclose(file);
+
+    pthread_rwlock_unlock(&rwlock);
 }
 
 /* Return library version */
