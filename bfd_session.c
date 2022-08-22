@@ -126,6 +126,8 @@ void *bfd_session_run(void *args)
     curr_params->current_session = &new_session;
     struct bfd_session *curr_session = curr_params->current_session;
 
+    sem_post(&current_thread->s_id_sem);
+
     /* Setup buffer and header structs for received packets */
     uint8_t recv_buf[BFD_PKG_MIN_SIZE];
     struct iovec recv_iov[1] = { { recv_buf, sizeof(recv_buf) } };
@@ -828,6 +830,7 @@ bfd_session_id bfd_session_start(struct bfd_session_params *params)
     new_thread.ret = 0;
 
     sem_init(&new_thread.sem, 0, 0);
+    sem_init(&new_thread.s_id_sem, 0, 0);
 
     ret = pthread_create(&session_id, NULL, bfd_session_run, (void *)&new_thread);
 
@@ -836,13 +839,15 @@ bfd_session_id bfd_session_start(struct bfd_session_params *params)
         return -1;
     }
 
+    sem_wait(&new_thread.s_id_sem);
+
+    /* Copy the session id */
+    new_thread.session_params->current_session->session_id = session_id;
+
     sem_wait(&new_thread.sem);
 
     if (new_thread.ret != 0)
         return new_thread.ret;
-
-    /* Copy the session id */
-    new_thread.session_params->current_session->session_id = session_id;
 
     return session_id;
 }

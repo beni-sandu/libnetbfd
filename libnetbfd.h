@@ -53,6 +53,7 @@ struct bfd_session_node {
 
 struct bfd_thread {
     sem_t sem;
+    sem_t s_id_sem;
     struct bfd_session_params *session_params;
     int ret;
 };
