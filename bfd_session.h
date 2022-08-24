@@ -82,6 +82,7 @@ struct bfd_session_params {
     char net_ns[NET_NS_SIZE];                               /* Network namespace name */
     uint16_t src_port;                                      /* Source port */
     char log_file[MAX_PATH];                                /* Path to log file */
+    void *client_data;                                      /* Client specific data */
 };
 
 /*
