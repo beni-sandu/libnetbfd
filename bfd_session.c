@@ -73,6 +73,7 @@ __thread struct sigevent tx_sev;
 __thread struct itimerspec tx_ts;
 __thread struct bfd_session_node session_node;
 __thread struct bfd_session_params session_parameters;      /* Copy of the session parameters */
+__thread char if_name[IFNAMSIZ];
 
 /* Forward declarations */
 void tx_timeout_handler(union sigval sv);
@@ -262,7 +263,7 @@ void *bfd_session_run(void *args)
      */
 
     if (curr_params->is_ipv6 == true) {
-        if (is_ip_live(curr_params->src_ip, true) == false) {
+        if (is_ip_live(curr_params->src_ip, true, if_name) == false) {
             pr_debug("Provided source IP is not assigned or the interface is DOWN.\n");
 
             if (curr_params->callback != NULL) {
@@ -271,7 +272,7 @@ void *bfd_session_run(void *args)
             }
         }
     } else {
-        if (is_ip_live(curr_params->src_ip, false) == false) {
+        if (is_ip_live(curr_params->src_ip, false, if_name) == false) {
             pr_debug("Provided source IP is not assigned or the interface is DOWN.\n");
 
             if (curr_params->callback != NULL) {
@@ -350,7 +351,7 @@ void *bfd_session_run(void *args)
     if (curr_params->is_ipv6 == true) {
         l = libnet_init(
             LIBNET_RAW6,                                /* injection type */
-            NULL,                                       /* network interface */
+            if_name,                                    /* network interface */
             libnet_errbuf);                             /* error buffer */
 
         if (l == NULL) {
@@ -366,7 +367,7 @@ void *bfd_session_run(void *args)
     else {
         l = libnet_init(
             LIBNET_RAW4,                                /* injection type */
-            NULL,                                       /* network interface */
+            if_name,                                    /* network interface */
             libnet_errbuf);                             /* error buffer */
 
         if (l == NULL) {
@@ -522,6 +523,10 @@ void *bfd_session_run(void *args)
 
     /* Start sending packets at min 1s rate */
     bfd_update_timer(curr_session->op_tx, &tx_ts, &tx_timer);
+
+#ifdef DEBUG_ENABLE
+    libnet_diag_dump_context(l);
+#endif
 
     /* Loop for processing incoming packets */
     while (true) {

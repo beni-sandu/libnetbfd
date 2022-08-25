@@ -392,8 +392,11 @@ void print_log(char *log_file, const char *format, ...)
  * Check if provided IP address is assigned on the local machine
  * and if it is, return true only if the interface that is using it
  * is UP. For any other scenario, return false.
+ *
+ * If we return true, also copy the interface name in buffer pointed
+ * by 3rd argument.
  */
-bool is_ip_live(char *ip_addr, bool is_ipv6)
+bool is_ip_live(char *ip_addr, bool is_ipv6, char *if_name)
 {
     struct ifaddrs *addrs, *ifp;
 
@@ -419,6 +422,7 @@ bool is_ip_live(char *ip_addr, bool is_ipv6)
                     /* We found the interface, check if it's up */
                     if (ifp->ifa_flags & IFF_UP) {
                         pr_debug("Interface %s with IP %s is UP.\n", ifp->ifa_name, ip_addr);
+                        strcpy(if_name, ifp->ifa_name);
                         freeifaddrs(addrs);
                         return true;
                     } else {
@@ -440,6 +444,7 @@ bool is_ip_live(char *ip_addr, bool is_ipv6)
                     /* We found the interface, check if it's up */
                     if (ifp->ifa_flags & IFF_UP) {
                         pr_debug("Interface %s with IP %s is UP.\n", ifp->ifa_name, ip_addr);
+                        strcpy(if_name, ifp->ifa_name);
                         freeifaddrs(addrs);
                         return true;
                     } else {
@@ -458,4 +463,3 @@ bool is_ip_live(char *ip_addr, bool is_ipv6)
 
     return false;
 }
-
