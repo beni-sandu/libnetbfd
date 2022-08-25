@@ -587,8 +587,8 @@ void *bfd_session_run(void *args)
         /* No data available */
         if (ret == -2) {
 
-            /* If we did not get any reponse and session was up, bring it down */
-            if (curr_session->local_state == BFD_STATE_UP) {
+            /* If we did not get any reponse and session was UP or INIT, bring it down */
+            if (curr_session->local_state == BFD_STATE_UP || curr_session->local_state == BFD_STATE_INIT) {
                 curr_session->local_state = BFD_STATE_DOWN;
                 curr_session->local_diag = BFD_DIAG_CTRL_DETECT_TIME_EXPIRED;
 
