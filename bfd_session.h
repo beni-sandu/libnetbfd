@@ -118,6 +118,7 @@ struct bfd_session {
     bfd_session_id session_id;
     uint8_t dscp;
     uint8_t detect_mult;
+    char *if_name;
 };
 
 /* Function prototypes */

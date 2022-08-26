@@ -270,6 +270,7 @@ void bfd_session_print_stats(bfd_session_id session_id)
     printf("%-25s %s\n", "Destination IP:", session->session_params->dst_ip);
     printf("%-25s %d\n", "Source port:", session->session_params->current_session->src_port);
     printf("%-25s %d\n", "Destination port:", session->session_params->current_session->dst_port);
+    printf("%-25s %s\n", "Device:", session->session_params->current_session->if_name);
     printf("%-25s %d\n", "DSCP:", session->session_params->dscp);
     printf("%-25s %d\n", "Des min TX interval:", session->session_params->current_session->des_min_tx_interval);
     printf("%-25s %d\n", "Req min RX interval:", session->session_params->current_session->req_min_rx_interval);
@@ -325,6 +326,7 @@ void bfd_session_print_stats_log(bfd_session_id session_id)
     fprintf(file, "%-25s %s\n", "Destination IP:", session->session_params->dst_ip);
     fprintf(file, "%-25s %d\n", "Source port:", session->session_params->current_session->src_port);
     fprintf(file, "%-25s %d\n", "Destination port:", session->session_params->current_session->dst_port);
+    fprintf(file, "%-25s %s\n", "Device:", session->session_params->current_session->if_name);
     fprintf(file, "%-25s %d\n", "DSCP:", session->session_params->dscp);
     fprintf(file, "%-25s %d\n", "Des min TX interval:", session->session_params->current_session->des_min_tx_interval);
     fprintf(file, "%-25s %d\n", "Req min RX interval:", session->session_params->current_session->req_min_rx_interval);

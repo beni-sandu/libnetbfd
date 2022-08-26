@@ -282,6 +282,9 @@ void *bfd_session_run(void *args)
         }
     }
 
+    /* Save pointer to interface name */
+    curr_session->if_name = if_name;
+
     /* Create an UDP socket */
     if (curr_params->is_ipv6 == true) {
         if ((sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
