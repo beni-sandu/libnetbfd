@@ -350,12 +350,28 @@ void *bfd_session_run(void *args)
         }
     }
 
-    /* Everything is fine with the IPs, we can now init libnet */
+    /*
+     * If for example we have a veth pair in the same namespace, we can't bind libnet to a
+     * specific device, since it will get confused and not work properly. I suspect this happens
+     * because the veth peer will appear as a parent ID device and it cannot distinguish between
+     * them.
+     * 
+     * Although this is not a very realistic scenario, it can be useful for quick testing sometimes,
+     * so as a workaround, if destination IP is assigned on the local machine inside the same
+     * network namespace, don't specifically bind libnet to that device.
+     */
     if (curr_params->is_ipv6 == true) {
-        l = libnet_init(
-            LIBNET_RAW6,                                /* injection type */
-            if_name,                                    /* network interface */
-            libnet_errbuf);                             /* error buffer */
+        if (is_ip_live(curr_params->dst_ip, true, NULL) == true) {
+            pr_debug("Destination IP is on same machine/namespace.\n");
+            l = libnet_init(
+                LIBNET_RAW6,                                /* injection type */
+                NULL,                                       /* network interface */
+                libnet_errbuf);                             /* error buffer */
+        } else
+            l = libnet_init(
+                LIBNET_RAW6,                                /* injection type */
+                if_name,                                    /* network interface */
+                libnet_errbuf);                             /* error buffer */
 
         if (l == NULL) {
             fprintf(stderr, "libnet_init() failed: %s\n", libnet_errbuf);
@@ -368,10 +384,17 @@ void *bfd_session_run(void *args)
         dst_ipv6 = libnet_name2addr6(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE);
     }
     else {
-        l = libnet_init(
-            LIBNET_RAW4,                                /* injection type */
-            if_name,                                    /* network interface */
-            libnet_errbuf);                             /* error buffer */
+        if (is_ip_live(curr_params->dst_ip, false, NULL) == true) {
+            pr_debug("Destination IP is on same machine/namespace.\n");
+            l = libnet_init(
+                LIBNET_RAW4,                                /* injection type */
+                NULL,                                       /* network interface */
+                libnet_errbuf);                             /* error buffer */
+        } else
+            l = libnet_init(
+                LIBNET_RAW4,                                /* injection type */
+                if_name,                                    /* network interface */
+                libnet_errbuf);                             /* error buffer */
 
         if (l == NULL) {
             fprintf(stderr, "libnet_init() failed: %s\n", libnet_errbuf);
