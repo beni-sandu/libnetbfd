@@ -266,6 +266,8 @@ void bfd_session_print_stats(bfd_session_id session_id)
     printf("---------------------------------------------\n");
     printf("%-25s %s\n", "Timestamp:", timestamp);
     printf("%-25s %ld\n", "Session ID:", session->session_params->current_session->session_id);
+    if (strlen(session->session_params->net_ns))
+        printf("%-25s %s\n", "Network namespace:", session->session_params->net_ns);
     printf("%-25s %s\n", "Source IP:", session->session_params->src_ip);
     printf("%-25s %s\n", "Destination IP:", session->session_params->dst_ip);
     printf("%-25s %d\n", "Source port:", session->session_params->current_session->src_port);
@@ -322,6 +324,8 @@ void bfd_session_print_stats_log(bfd_session_id session_id)
     fprintf(file, "---------------------------------------------\n");
     fprintf(file, "%-25s %s\n", "Timestamp:", timestamp);
     fprintf(file, "%-25s %ld\n", "Session ID:", session->session_params->current_session->session_id);
+    if (strlen(session->session_params->net_ns))
+        fprintf(file, "%-25s %s\n", "Network namespace:", session->session_params->net_ns);
     fprintf(file, "%-25s %s\n", "Source IP:", session->session_params->src_ip);
     fprintf(file, "%-25s %s\n", "Destination IP:", session->session_params->dst_ip);
     fprintf(file, "%-25s %d\n", "Source port:", session->session_params->current_session->src_port);
