@@ -39,7 +39,7 @@ Libnetbfd is installed as a shared library and a set of headers. The main header
 Below is a code example of a typical workflow:
 
 ```c
-//Add a callback to act on state changes
+// Add a callback to act on state changes
 void bfd_callback(struct cb_status *status) {
     /*
      *  1 - Session detected the remote peer going DOWN (detection time expired)
@@ -47,6 +47,7 @@ void bfd_callback(struct cb_status *status) {
      *  3 - Session is going to UP
      *  4 - Remote signaled going DOWN
      *  5 - Remote signaled going ADMIN_DOWN
+     *  6 - Source IP is not assigned, or the interface that is using it is DOWN
      */
 
     switch (status->cb_ret) {
@@ -65,36 +66,38 @@ void bfd_callback(struct cb_status *status) {
         case 5:
             printf("Remote [%s] signaled going ADMIN_DOWN\n", status->session_params->dst_ip);
             break;
+        case 6:
+            printf("Provided source IP is not assigned or the interface is DOWN.\n");
+            break;
     }
 }
 
-//Fill in needed parameters for the BFD session
+// Fill in needed parameters for the BFD session
 bfd_session_id s1 = 0;
 
 struct bfd_session_params s1_params = {
-        .callback = &bfd_callback,
-        .des_min_tx_interval = 1000000,   //in us
-        .detect_mult = 1,
-        .dst_ip = "192.168.1.2",
-        .is_ipv6 = false,
-        .req_min_rx_interval = 1000000,   //in us
-        .src_ip = "192.168.1.1",
-        .dscp = 8, //Low-priority data (CS1)
-    };
+    .callback = &bfd_callback,
+    .des_min_tx_interval = 500000,   //in us
+    .detect_mult = 3,
+    .dst_ip = "192.168.4.2",
+    .is_ipv6 = false,
+    .req_min_rx_interval = 500000,   //in us
+    .src_ip = "192.168.4.1",
+    .dscp = 48, //Network control (CS6)
+};
 
-//Start the session:
+// Start the session:
 s1 = bfd_session_start(&s1_params);
 
-//Error checking
+// Error checking
 if (s1 > 0)
-        printf("BFD session started successfully, local IP: %s, remote IP: %s, session id: %ld, src_port: %d\n", s1_params.src_ip,
-                    s1_params.dst_ip, s1, s1_params.current_session->src_port);
-    else
-        printf("Error starting BFD session for IP: %s\n", s1_params.src_ip);
+    printf("BFD session started successfully: [%s <--> %s]\n", s1_params.src_ip, s1_params.dst_ip);
+else
+    printf("Error starting BFD session: [%s <--> %s]\n", s1_params.src_ip, s1_params.dst_ip);
 
-//Do your work here...
+// Do your work here...
 
-//Stop the session
+// Stop the session
 bfd_session_stop(s1);
 ```
 

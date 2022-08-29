@@ -47,8 +47,8 @@
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
-#ifndef BFD_PACKET_H
-#define BFD_PACKET_H
+#ifndef _BFD_PACKET_H
+#define _BFD_PACKET_H
 
 #include <stdint.h>
 #include <arpa/inet.h>
@@ -86,4 +86,4 @@ void bfd_build_packet(enum bfd_diag diag, enum bfd_state state, bool poll, bool 
                 uint32_t my_discr, uint32_t your_discr, uint32_t des_min_tx_interval, uint32_t req_min_rx_interval,
                 struct bfd_ctrl_packet *packet);
 
-#endif //BFD_PACKET_H
+#endif // _BFD_PACKET_H

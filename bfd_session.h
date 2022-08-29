@@ -24,8 +24,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef BFD_SESSION_H
-#define BFD_SESSION_H
+#ifndef _BFD_SESSION_H
+#define _BFD_SESSION_H
 
 #include <stdbool.h>
 #include <arpa/inet.h>
@@ -125,4 +125,4 @@ struct bfd_session {
 bfd_session_id bfd_session_start(struct bfd_session_params *params);
 void bfd_session_stop(bfd_session_id session_id);
 
-#endif //BFD_SESSION_H
+#endif // _BFD_SESSION_H

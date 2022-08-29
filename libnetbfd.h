@@ -24,8 +24,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LIBNETBFD_H
-#define LIBNETBFD_H
+#ifndef _LIBNETBFD_H
+#define _LIBNETBFD_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -121,4 +121,4 @@ bool is_ip_live(char *ip_addr, bool is_ipv6, char *if_name);
 }
 #endif
 
-#endif //LIBNETBFD_H
+#endif // _LIBNETBFD_H
