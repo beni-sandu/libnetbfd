@@ -109,7 +109,6 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
             if (session->session_params->current_session->local_state == BFD_STATE_ADMIN_DOWN) {
                 pr_debug("Getting session: %ld out of ADMIN_DOWN.\n", session_id);
                 session->session_params->current_session->local_state = BFD_STATE_DOWN;
-                session->session_params->current_session->local_diag = BFD_DIAG_NODIAG;
             }
             else
                 fprintf(stderr, "Session: %ld was not in ADMIN_DOWN, skipping.\n", session_id);
