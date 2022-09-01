@@ -184,7 +184,7 @@ int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *t
     return EXIT_SUCCESS;
 }
 
-const char *state2string(enum bfd_state state)
+const char *bfd_state2string(enum bfd_state state)
 {
     switch(state) {
         case BFD_STATE_UP:
@@ -198,6 +198,32 @@ const char *state2string(enum bfd_state state)
     }
 
     return "UNKNOWN BFD STATE";
+}
+
+const char *bfd_diag2string(enum bfd_diag diag)
+{
+    switch(diag) {
+        case BFD_DIAG_NODIAG:
+            return "BFD_DIAG_NODIAG";
+        case BFD_DIAG_CTRL_DETECT_TIME_EXPIRED:
+            return "BFD_DIAG_CTRL_DETECT_TIME_EXPIRED";
+        case BFD_DIAG_ECHO_FUNCT_FAIL:
+            return "BFD_DIAG_ECHO_FUNCT_FAIL";
+        case BFD_DIAG_NEIGH_SIGNL_SESS_DOWN:
+            return "BFD_DIAG_NEIGH_SIGNL_SESS_DOWN";
+        case BFD_DIAG_FWD_PLANE_RESET:
+            return "BFD_DIAG_FWD_PLANE_RESET";
+        case BFD_DIAG_PATH_DOWN:
+            return "BFD_DIAG_PATH_DOWN";
+        case BFD_DIAG_CONCAT_PATH_DOWN:
+            return "BFD_DIAG_CONCAT_PATH_DOWN";
+        case BFD_DIAG_ADMIN_DOWN:
+            return "BFD_DIAG_ADMIN_DOWN";
+        case BFD_DIAG_REV_CONCAT_PATH_DOWN:
+            return "BFD_DIAG_REV_CONCAT_PATH_DOWN";
+    }
+
+    return "UNKNOWN BFD DIAG";
 }
 
 bool is_ip_valid(char *ip, bool is_ipv6)
@@ -300,7 +326,7 @@ void bfd_session_print_stats(bfd_session_id session_id)
     printf("%-25s %d\n", "Req min RX interval:", session->session_params->current_session->req_min_rx_interval);
     printf("%-25s %d\n", "Detection Multiplier:", session->session_params->detect_mult);
     printf("%-25s 0x%x\n", "My discriminator:", session->session_params->current_session->local_discr);
-    printf("%-25s %s\n", "Current state:", state2string(session->session_params->current_session->local_state));
+    printf("%-25s %s\n", "Current state:", bfd_state2string(session->session_params->current_session->local_state));
     printf("%-25s %d\n", "Operational TX:", session->session_params->current_session->op_tx);
     printf("%-25s %d\n", "Detection time:", session->session_params->current_session->detection_time);
     printf("---------------------------------------------\n");
@@ -358,7 +384,7 @@ void bfd_session_print_stats_log(bfd_session_id session_id)
     fprintf(file, "%-25s %d\n", "Req min RX interval:", session->session_params->current_session->req_min_rx_interval);
     fprintf(file, "%-25s %d\n", "Detection Multiplier:", session->session_params->detect_mult);
     fprintf(file, "%-25s 0x%x\n", "My discriminator:", session->session_params->current_session->local_discr);
-    fprintf(file, "%-25s %s\n", "Current state:", state2string(session->session_params->current_session->local_state));
+    fprintf(file, "%-25s %s\n", "Current state:", bfd_state2string(session->session_params->current_session->local_state));
     fprintf(file, "%-25s %d\n", "Operational TX:", session->session_params->current_session->op_tx);
     fprintf(file, "%-25s %d\n", "Detection time:", session->session_params->current_session->detection_time);
     fprintf(file, "---------------------------------------------\n");

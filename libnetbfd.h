@@ -102,7 +102,8 @@ static inline void bfd_build_udp(struct bfd_ctrl_packet *pkt, uint16_t src_port,
 
 /* Function prototypes */
 int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *btimer);
-const char *state2string(enum bfd_state state);
+const char *bfd_state2string(enum bfd_state state);
+const char *bfd_diag2string(enum bfd_diag diag);
 void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
     uint32_t des_min_tx_interval, uint32_t req_min_rx_interval);
 bool is_ip_valid(char *ip, bool is_ipv6);
