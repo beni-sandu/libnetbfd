@@ -105,7 +105,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
                 /* Adjust state/diag/calback code for ADMIN_DOWN */
                 session->session_params->current_session->local_state = BFD_STATE_ADMIN_DOWN;
                 session->session_params->current_session->local_diag = BFD_DIAG_ADMIN_DOWN;
-                sess_cb_status->cb_ret = 7;
+                sess_cb_status->cb_ret = BFD_CB_SESSION_ENABLE_ADMIN_DOWN;
 
                 if (session->session_params->callback != NULL) {
                     session->session_params->callback(sess_cb_status);
@@ -127,7 +127,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
 
                 /* Adjust state/callback for getting out of ADMIN_DOWN */
                 session->session_params->current_session->local_state = BFD_STATE_DOWN;
-                sess_cb_status->cb_ret = 8;
+                sess_cb_status->cb_ret = BFD_CB_SESSION_DISABLE_ADMIN_DOWN;
 
                 if (session->session_params->callback != NULL) {
                     session->session_params->callback(sess_cb_status);

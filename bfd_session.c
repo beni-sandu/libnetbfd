@@ -163,7 +163,7 @@ void *bfd_session_run(void *args)
      *  7 - Session is going into ADMIN_DOWN state
      *  8 - Session is getting out of ADMIN_DOWN state
      */
-    callback_status.cb_ret = 0;
+    callback_status.cb_ret = BFD_CB_DEFAULT;
     callback_status.session_params = curr_params;
     curr_session->curr_sess_cb_status = &callback_status;
 
@@ -270,7 +270,7 @@ void *bfd_session_run(void *args)
             pr_debug("Provided source IP is not assigned or the interface is DOWN.\n");
 
             if (curr_params->callback != NULL) {
-                callback_status.cb_ret = 6;
+                callback_status.cb_ret = BFD_CB_IP_NOT_ASSIGN_OR_IF_DOWN;
                 curr_params->callback(&callback_status);
             }
         }
@@ -279,7 +279,7 @@ void *bfd_session_run(void *args)
             pr_debug("Provided source IP is not assigned or the interface is DOWN.\n");
 
             if (curr_params->callback != NULL) {
-                callback_status.cb_ret = 6;
+                callback_status.cb_ret = BFD_CB_IP_NOT_ASSIGN_OR_IF_DOWN;
                 curr_params->callback(&callback_status);
             }
         }
@@ -634,7 +634,7 @@ void *bfd_session_run(void *args)
                 curr_session->remote_discr = 0;
 
                 if (curr_params->callback != NULL) {
-                    callback_status.cb_ret = 1;
+                    callback_status.cb_ret = BFD_CB_DETECT_TIME_EXPIRED;
                     curr_params->callback(&callback_status);
                 }
             }
@@ -764,7 +764,7 @@ void *bfd_session_run(void *args)
                     curr_session->local_diag = BFD_DIAG_NEIGH_SIGNL_SESS_DOWN;
                     curr_session->local_state = BFD_STATE_DOWN;
                     if (curr_params->callback != NULL) {
-                        callback_status.cb_ret = 5;
+                        callback_status.cb_ret = BFD_CB_REMOTE_SIGN_ADMIN_DOWN;
                         curr_params->callback(&callback_status);
                     }
                 }
@@ -774,7 +774,7 @@ void *bfd_session_run(void *args)
                     if (curr_session->remote_state == BFD_STATE_DOWN) {
                         curr_session->local_state = BFD_STATE_INIT;
                         if (curr_params->callback != NULL) {
-                            callback_status.cb_ret = 2;
+                            callback_status.cb_ret = BFD_CB_SESSION_INIT;
                             curr_params->callback(&callback_status);
                         }
                     }
@@ -782,7 +782,7 @@ void *bfd_session_run(void *args)
                         curr_session->local_state = BFD_STATE_UP;
                         curr_session->local_diag = BFD_DIAG_NODIAG;  // should this be updated?
                         if (curr_params->callback != NULL) {
-                            callback_status.cb_ret = 3;
+                            callback_status.cb_ret = BFD_CB_SESSION_UP;
                             curr_params->callback(&callback_status);
                         }
                     }
@@ -792,7 +792,7 @@ void *bfd_session_run(void *args)
                             curr_session->local_state = BFD_STATE_UP;
                             curr_session->local_diag = BFD_DIAG_NODIAG; // should this be updated?
                             if (curr_params->callback != NULL) {
-                                callback_status.cb_ret = 3;
+                                callback_status.cb_ret = BFD_CB_SESSION_UP;
                                 curr_params->callback(&callback_status);
                             }
                         }
@@ -802,7 +802,7 @@ void *bfd_session_run(void *args)
                         curr_session->local_diag = BFD_DIAG_NEIGH_SIGNL_SESS_DOWN;
                         curr_session->local_state = BFD_STATE_DOWN;
                         if (curr_params->callback != NULL) {
-                                callback_status.cb_ret = 4;
+                                callback_status.cb_ret = BFD_CB_REMOTE_SIGN_DOWN;
                                 curr_params->callback(&callback_status);
                         }
                     }

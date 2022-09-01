@@ -62,6 +62,18 @@ enum bfd_state {
     BFD_STATE_UP                        = 3,
 };
 
+enum bfd_callback_ret {
+    BFD_CB_DEFAULT                      = 0,
+    BFD_CB_DETECT_TIME_EXPIRED          = 1,
+    BFD_CB_SESSION_INIT                 = 2,
+    BFD_CB_SESSION_UP                   = 3,
+    BFD_CB_REMOTE_SIGN_DOWN             = 4,
+    BFD_CB_REMOTE_SIGN_ADMIN_DOWN       = 5,
+    BFD_CB_IP_NOT_ASSIGN_OR_IF_DOWN     = 6,
+    BFD_CB_SESSION_ENABLE_ADMIN_DOWN    = 7,
+    BFD_CB_SESSION_DISABLE_ADMIN_DOWN   = 8,
+};
+
 struct cb_status {
     int cb_ret;                                             /* Callback return value */
     struct bfd_session_params *session_params;              /* Pointer to current session parameters */
