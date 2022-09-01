@@ -90,6 +90,8 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
         return;
     }
 
+    struct cb_status *sess_cb_status = session->session_params->current_session->curr_sess_cb_status;
+
     switch (cmd) {
         case SESSION_ENABLE_ADMIN_DOWN:
 
@@ -97,6 +99,11 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
                 pr_debug("Putting session: %ld into ADMIN_DOWN.\n", session_id);
                 session->session_params->current_session->local_state = BFD_STATE_ADMIN_DOWN;
                 session->session_params->current_session->local_diag = BFD_DIAG_ADMIN_DOWN;
+                sess_cb_status->cb_ret = 7;
+
+                if (session->session_params->callback != NULL) {
+                    session->session_params->callback(sess_cb_status);
+                }
             }
             else
                 fprintf(stderr, "Session: %ld is already in ADMIN_DOWN, skipping.\n", session_id);
@@ -109,6 +116,11 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
             if (session->session_params->current_session->local_state == BFD_STATE_ADMIN_DOWN) {
                 pr_debug("Getting session: %ld out of ADMIN_DOWN.\n", session_id);
                 session->session_params->current_session->local_state = BFD_STATE_DOWN;
+                sess_cb_status->cb_ret = 8;
+
+                if (session->session_params->callback != NULL) {
+                    session->session_params->callback(sess_cb_status);
+                }
             }
             else
                 fprintf(stderr, "Session: %ld was not in ADMIN_DOWN, skipping.\n", session_id);

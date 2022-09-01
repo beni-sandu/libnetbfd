@@ -160,9 +160,12 @@ void *bfd_session_run(void *args)
      *  4 - Remote signaled going DOWN
      *  5 - Remote signaled going ADMIN_DOWN
      *  6 - Source IP is not assigned, or the interface that is using it is DOWN
+     *  7 - Session is going into ADMIN_DOWN state
+     *  8 - Session is getting out of ADMIN_DOWN state
      */
     callback_status.cb_ret = 0;
     callback_status.session_params = curr_params;
+    curr_session->curr_sess_cb_status = &callback_status;
 
     pthread_cleanup_push(thread_cleanup, (void*)&tx_timer);
 
