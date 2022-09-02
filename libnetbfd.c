@@ -91,7 +91,6 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
     }
 
     struct cb_status *sess_cb_status = session->session_params->current_session->curr_sess_cb_status;
-    static int prev_bfd_diag = BFD_DIAG_NODIAG;
 
     switch (cmd) {
         case SESSION_ENABLE_ADMIN_DOWN:
@@ -100,7 +99,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
                 pr_debug("Putting session: %ld into ADMIN_DOWN.\n", session_id);
 
                 /* Save the current diag code */
-                prev_bfd_diag = session->session_params->current_session->local_diag;
+                session->session_params->current_session->prev_bfd_diag = session->session_params->current_session->local_diag;
 
                 /* Adjust state/diag/calback code for ADMIN_DOWN */
                 session->session_params->current_session->local_state = BFD_STATE_ADMIN_DOWN;
@@ -123,7 +122,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
                 pr_debug("Getting session: %ld out of ADMIN_DOWN.\n", session_id);
 
                 /* Restore previous diag code */
-                session->session_params->current_session->local_diag = prev_bfd_diag;
+                session->session_params->current_session->local_diag = session->session_params->current_session->prev_bfd_diag;
 
                 /* Adjust state/callback for getting out of ADMIN_DOWN */
                 session->session_params->current_session->local_state = BFD_STATE_DOWN;

@@ -132,6 +132,7 @@ struct bfd_session {
     uint8_t detect_mult;
     char *if_name;
     struct cb_status *curr_sess_cb_status;
+    int prev_bfd_diag;
 };
 
 /* Function prototypes */
