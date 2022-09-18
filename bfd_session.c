@@ -430,6 +430,7 @@ void *bfd_session_run(void *args)
     curr_session->local_poll = false;
     curr_session->local_final = false;
     curr_session->poll_in_progress = false;
+    curr_session->remote_poll_in_progress = false;
     curr_session->final_detection_time = 0;
     curr_session->final_op_tx = 0;
     curr_session->dst_port = BFD_CTRL_PORT;
@@ -754,6 +755,9 @@ void *bfd_session_run(void *args)
                 curr_session->req_min_rx_interval = curr_params->req_min_rx_interval;
             curr_session->detection_time = curr_session->remote_detect_mult * max(curr_session->req_min_rx_interval, curr_session->remote_des_min_tx_interval);
 
+            if (curr_session->remote_poll_in_progress)
+                curr_session->local_final = false;
+
             /* BFD state machine logic */
             if (curr_session->local_state == BFD_STATE_ADMIN_DOWN) {
                 continue;
@@ -817,7 +821,8 @@ void *bfd_session_run(void *args)
             if (curr_session->remote_poll == true) {
 
                 int c = 0;
-
+                
+                curr_session->remote_poll_in_progress = true;
                 curr_session->local_poll = false;
                 curr_session->local_final = true;
 
@@ -836,11 +841,7 @@ void *bfd_session_run(void *args)
                     fprintf(stderr, "Write error: %s\n", libnet_geterror(l));
                     continue;
                 }
-
-                /* We only send 1 packet with the Final (F) bit set, so flip it back */
-                curr_session->local_final = false;
             }
-
         } //if (ret > 0)
     } // while (true)
 

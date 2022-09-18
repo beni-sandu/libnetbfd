@@ -124,6 +124,7 @@ struct bfd_session {
     bool remote_poll;
     bool remote_final;
     bool poll_in_progress;
+    bool remote_poll_in_progress;
     int sockfd;
     uint16_t src_port;
     uint16_t dst_port;
