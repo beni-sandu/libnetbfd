@@ -38,7 +38,7 @@ extern "C" {
 #include "bfd_packet.h"
 
 /* Library version */
-#define LIBNETBFD_VERSION "0.1"
+#define LIBNETBFD_VERSION "0.2"
 
 #ifdef DEBUG_ENABLE
 #define pr_debug(...) printf("[DEBUG] "__VA_ARGS__)
