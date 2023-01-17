@@ -777,6 +777,11 @@ void *bfd_session_run(void *args)
                 if (curr_session->local_state == BFD_STATE_DOWN) {
                     if (curr_session->remote_state == BFD_STATE_DOWN) {
                         curr_session->local_state = BFD_STATE_INIT;
+
+                        /* Reset detection time */
+                        if (curr_session->detection_time < 1000000)
+                            curr_session->detection_time = 1000000;
+
                         if (curr_params->callback != NULL) {
                             callback_status.cb_ret = BFD_CB_SESSION_INIT;
                             curr_params->callback(&callback_status);
@@ -799,6 +804,10 @@ void *bfd_session_run(void *args)
                                 callback_status.cb_ret = BFD_CB_SESSION_UP;
                                 curr_params->callback(&callback_status);
                             }
+                        } else {
+                            /* Reset detection time */
+                            if (curr_session->detection_time < 1000000)
+                                curr_session->detection_time = 1000000;
                         }
                     }
                 else {   //curr_session->local_state = BFD_STATE_UP
