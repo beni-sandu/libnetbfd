@@ -80,6 +80,7 @@ void tx_timeout_handler(union sigval sv);
 void thread_cleanup(void *args);
 int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us);
 void *bfd_session_run(void *args);
+void bfd_reset_session_state_vars(struct bfd_session *session);
 
 int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us)
 {
@@ -627,12 +628,8 @@ void *bfd_session_run(void *args)
                 curr_session->local_state = BFD_STATE_DOWN;
                 curr_session->local_diag = BFD_DIAG_CTRL_DETECT_TIME_EXPIRED;
 
-                /* Adjust the operational TX to min 1s rate */
-                if (curr_session->op_tx < 1000000)
-                    curr_session->op_tx = 1000000;
-
-                /* Clear remote discriminator value */
-                curr_session->remote_discr = 0;
+                /* Reset state variables */
+                bfd_reset_session_state_vars(curr_session);
 
                 if (curr_params->callback != NULL) {
                     callback_status.cb_ret = BFD_CB_DETECT_TIME_EXPIRED;
@@ -814,6 +811,10 @@ void *bfd_session_run(void *args)
                     if (curr_session->remote_state == BFD_STATE_DOWN) {
                         curr_session->local_diag = BFD_DIAG_NEIGH_SIGNL_SESS_DOWN;
                         curr_session->local_state = BFD_STATE_DOWN;
+
+                        /* Reset state variables */
+                        bfd_reset_session_state_vars(curr_session);
+
                         if (curr_params->callback != NULL) {
                                 callback_status.cb_ret = BFD_CB_REMOTE_SIGN_DOWN;
                                 curr_params->callback(&callback_status);
@@ -979,4 +980,22 @@ void thread_cleanup(void *args)
      */
     if (timer->is_session_configured == false)
         pthread_detach(pthread_self());
+}
+
+/* Reset state variables when a session goes DOWN */
+void bfd_reset_session_state_vars(struct bfd_session *session)
+{
+    /* Reset the operational TX to min 1s rate */
+    if (session->op_tx < 1000000)
+        session->op_tx = 1000000;
+
+    /* Clear remote discriminator value */
+    session->remote_discr = 0;
+
+    /* Reset RemoteMinRxInterval (Section 6.8.18 in RFC5880)*/
+    session->remote_min_rx_interval = 1;
+
+    /* Reset detection time to min 1s */
+    if (session->detection_time < 1000000)
+        session->detection_time = 1000000;
 }
