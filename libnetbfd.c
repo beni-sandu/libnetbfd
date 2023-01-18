@@ -398,18 +398,29 @@ const char *netbfd_lib_version(void)
     return ("libnetbfd version "LIBNETBFD_VERSION);
 }
 
-int get_ttl(struct msghdr *recv_msg)
+int get_ttl_or_hopl(struct msghdr *recv_msg, bool is_ipv6)
 {
-    int ttl = -1;
+    int ttl_hopl = -1;
 
-    for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(recv_msg); cmsg != NULL; cmsg = CMSG_NXTHDR(recv_msg, cmsg))
-        if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_TTL) {
-            uint8_t *ttl_ptr = (uint8_t *)CMSG_DATA(cmsg);
-            ttl = *ttl_ptr;
-            break;
+    if (is_ipv6 == true) {
+        for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(recv_msg); cmsg != NULL; cmsg = CMSG_NXTHDR(recv_msg, cmsg)) {
+            if (cmsg->cmsg_level == IPPROTO_IPV6 && cmsg->cmsg_type == IPV6_HOPLIMIT) {
+                uint8_t *hopl_ptr = (uint8_t *)CMSG_DATA(cmsg);
+                ttl_hopl = *hopl_ptr;
+                break;
+            }
         }
+    } else {
+        for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(recv_msg); cmsg != NULL; cmsg = CMSG_NXTHDR(recv_msg, cmsg)) {
+            if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_TTL) {
+                uint8_t *ttl_ptr = (uint8_t *)CMSG_DATA(cmsg);
+                ttl_hopl = *ttl_ptr;
+                break;
+            }
+        }
+    }
 
-    return ttl;
+    return ttl_hopl;
 }
 
 void print_log(char *log_file, const char *format, ...)

@@ -310,12 +310,21 @@ void *bfd_session_run(void *args)
     /* Store the sockfd so we can close it when we're done */
     tx_timer.sess_params->current_session->sockfd = sockfd;
 
-    /* Configure socket to read TTL value */
-    if (setsockopt(sockfd, IPPROTO_IP, IP_RECVTTL, &flag_enable, sizeof(flag_enable)) < 0) {
-        fprintf(stderr, "Can't configure socket to read TTL.\n");
-        current_thread->ret = -1;
-        sem_post(&current_thread->sem);
-        pthread_exit(NULL);
+    /* Configure socket to read TTL/Hop Limit value */
+    if (curr_params->is_ipv6 == true) {
+        if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &flag_enable, sizeof(flag_enable)) < 0) {
+            fprintf(stderr, "Can't configure socket to read Hop Limit value.\n");
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
+        }
+    } else {
+        if (setsockopt(sockfd, IPPROTO_IP, IP_RECVTTL, &flag_enable, sizeof(flag_enable)) < 0) {
+            fprintf(stderr, "Can't configure socket to read TTL value.\n");
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
+        }
     }
 
     /* Make socket address reusable */
@@ -642,7 +651,7 @@ void *bfd_session_run(void *args)
         if (ret > 0) {
 
             /* If TTL/Hop limit is not 255, packet MUST be discarded (section 5 in RFC5881) */
-            if (get_ttl(&recv_hdr) != 255) {
+            if (get_ttl_or_hopl(&recv_hdr, curr_params->is_ipv6) != 255) {
                 pr_debug("Wrong TTL value for received packet.\n");
                 continue;
             }
