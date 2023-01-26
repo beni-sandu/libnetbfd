@@ -170,6 +170,28 @@ void *bfd_session_run(void *args)
 
     pthread_cleanup_push(thread_cleanup, (void*)&tx_timer);
 
+    /* Check if the required BFD specific parameters are valid */
+    if (curr_params->detect_mult <= 0) {
+        fprintf(stderr, "Invalid Detection Multiplier value.\n");
+        current_thread->ret = -1;
+        sem_post(&current_thread->sem);
+        pthread_exit(NULL);
+    }
+
+    if (curr_params->req_min_rx_interval <= 0) {
+        fprintf(stderr, "Invalid Required Min RX value.\n");
+        current_thread->ret = -1;
+        sem_post(&current_thread->sem);
+        pthread_exit(NULL);
+    }
+
+    if (curr_params->des_min_tx_interval <= 0) {
+        fprintf(stderr, "Invalid Desired Min TX value.\n");
+        current_thread->ret = -1;
+        sem_post(&current_thread->sem);
+        pthread_exit(NULL);
+    }
+
     /* Check for CAP_NET_RAW capability */
     caps = cap_get_proc();
     if (caps == NULL) {
