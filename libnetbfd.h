@@ -71,13 +71,8 @@ enum bfd_param {
 
 /* Data passed to per thread timer */
 struct bfd_timer {
-    bool is_timer_created;
-    bool is_session_configured;
+    bool is_created;
     timer_t timer_id;                                       /* POSIX interval timer id */
-    struct bfd_session_params *sess_params;                 /* pointer to current BFD session parameters if needed */
-    struct bfd_ctrl_packet *pkt;
-    libnet_ptag_t *udp_tag;
-    libnet_t *l;
     struct itimerspec *tx_ts;
 };
 

@@ -29,6 +29,7 @@
 
 #include <stdbool.h>
 #include <arpa/inet.h>
+#include <libnet.h>
 
 /* RFC5881 (https://datatracker.ietf.org/doc/html/rfc5881) specifies the ports that MUST be used */
 #define BFD_CTRL_PORT   3784
@@ -134,6 +135,11 @@ struct bfd_session {
     char *if_name;
     struct cb_status *curr_sess_cb_status;
     int prev_bfd_diag;
+    struct bfd_timer *session_timer;
+    bool is_configured;
+    struct bfd_ctrl_packet *pkt;
+    libnet_ptag_t *udp_tag;
+    libnet_t *l;
 };
 
 /* Function prototypes */

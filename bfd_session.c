@@ -127,6 +127,10 @@ void *bfd_session_run(void *args)
     struct bfd_session new_session;
     curr_params->current_session = &new_session;
     struct bfd_session *curr_session = curr_params->current_session;
+    curr_session->session_timer = &tx_timer;
+    curr_session->pkt = &pkt;
+    curr_session->udp_tag = &udp_tag;
+    curr_session->is_configured = false;
 
     sem_post(&current_thread->s_id_sem);
 
@@ -145,13 +149,9 @@ void *bfd_session_run(void *args)
     int flag_enable = 1;
 
     /* Initialize timer data */
-    tx_timer.sess_params = curr_params;
-    tx_timer.pkt = &pkt;
-    tx_timer.udp_tag = &udp_tag;
     tx_timer.tx_ts = &tx_ts;
     tx_timer.timer_id = NULL;
-    tx_timer.is_timer_created = false;
-    tx_timer.is_session_configured = false;
+    tx_timer.is_created = false;
 
     /*
      * Define some callback return codes here to cover cases that we're interested in (can be adjusted later if needed):
@@ -168,7 +168,7 @@ void *bfd_session_run(void *args)
     callback_status.session_params = curr_params;
     curr_session->curr_sess_cb_status = &callback_status;
 
-    pthread_cleanup_push(thread_cleanup, (void*)&tx_timer);
+    pthread_cleanup_push(thread_cleanup, (void*)curr_session);
 
     /* Check if the required BFD specific parameters are valid */
     if (curr_params->detect_mult <= 0) {
@@ -330,7 +330,7 @@ void *bfd_session_run(void *args)
     }
 
     /* Store the sockfd so we can close it when we're done */
-    tx_timer.sess_params->current_session->sockfd = sockfd;
+    curr_session->sockfd = sockfd;
 
     /* Configure socket to read TTL/Hop Limit value */
     if (curr_params->is_ipv6 == true) {
@@ -443,7 +443,7 @@ void *bfd_session_run(void *args)
     }
 
     /* Copy libnet pointer */
-    tx_timer.l = l;
+    curr_session->l = l;
 
     /* Seed random generator used for local discriminator */
     srandom((uint64_t)curr_params);
@@ -548,10 +548,10 @@ void *bfd_session_run(void *args)
     }
 
     /* Initial TX timer configuration, we start sending packets at min 1s as per the standard */
-    tx_sev.sigev_notify = SIGEV_THREAD;                        /* Notify via thread */
-    tx_sev.sigev_notify_function = &tx_timeout_handler;        /* Handler function */
-    tx_sev.sigev_notify_attributes = NULL;                     /* Could be pointer to pthread_attr_t structure */
-    tx_sev.sigev_value.sival_ptr = &tx_timer;                  /* Pointer passed to handler */
+    tx_sev.sigev_notify = SIGEV_THREAD;                         /* Notify via thread */
+    tx_sev.sigev_notify_function = &tx_timeout_handler;         /* Handler function */
+    tx_sev.sigev_notify_attributes = NULL;                      /* Could be pointer to pthread_attr_t structure */
+    tx_sev.sigev_value.sival_ptr = curr_session;                /* Pointer passed to handler */
 
     /* Configure TX interval */
     tx_ts.it_interval.tv_sec = curr_session->des_min_tx_interval / 1000000;
@@ -568,7 +568,7 @@ void *bfd_session_run(void *args)
     }
 
     /* Timer should be created, but we still get a NULL pointer sometimes */
-    tx_timer.is_timer_created = true;
+    tx_timer.is_created = true;
     pr_debug("TX timer ID: %p\n", tx_timer.timer_id);
 
     /* Copy params pointer to session node */
@@ -580,7 +580,7 @@ void *bfd_session_run(void *args)
     pthread_rwlock_unlock(&rwlock);
 
     /* Session configuration is successful, return a valid session id */
-    tx_timer.is_session_configured = true;
+    curr_session->is_configured = true;
     sem_post(&current_thread->sem);
 
     /* Start sending packets at min 1s rate */
@@ -946,17 +946,15 @@ void bfd_session_stop(bfd_session_id session_id)
 
 void tx_timeout_handler(union sigval sv)
 {
-    struct bfd_timer *timer_data = sv.sival_ptr;
+    struct bfd_session *curr_session = sv.sival_ptr;
 
     uint32_t jitt_maxpercent;
     uint32_t tx_jitter;
     int c;
-    struct bfd_session_params *curr_params = timer_data->sess_params;
-    struct bfd_session *curr_session = curr_params->current_session;
-    struct bfd_ctrl_packet *pkt = timer_data->pkt;
-    libnet_ptag_t *udp_tag = timer_data->udp_tag;
-    libnet_t *l = timer_data->l;
-    struct itimerspec *tx_ts = timer_data->tx_ts;
+    struct bfd_ctrl_packet *pkt = curr_session->pkt;
+    libnet_ptag_t *udp_tag = curr_session->udp_tag;
+    libnet_t *l = curr_session->l;
+    struct itimerspec *tx_ts = curr_session->session_timer->tx_ts;
 
     if (curr_session->poll_in_progress == true)
         curr_session->local_poll = true;
@@ -980,17 +978,17 @@ void tx_timeout_handler(union sigval sv)
     /* Apply jitter to TX transmit interval as per section 6.8.7 and start the timer for the next packet */
     jitt_maxpercent = (curr_session->detect_mult == 1) ? 15 : 25;
     tx_jitter = (curr_session->op_tx * (75 + ((uint32_t) random() % jitt_maxpercent))) / 100;
-    bfd_update_timer(tx_jitter, tx_ts, timer_data);
+    bfd_update_timer(tx_jitter, tx_ts, curr_session->session_timer);
 }
 
 void thread_cleanup(void *args)
 {
-    struct bfd_timer *timer = (struct bfd_timer *)args;
+    struct bfd_session *curr_session = (struct bfd_session *)args;
+    struct bfd_timer *session_timer = curr_session->session_timer;
 
-    /* Cleanup allocated data */
-    if (timer->is_timer_created == true) {
-        timer_delete(timer->timer_id);
-
+    /* Clean up TX timer */
+    if (session_timer->is_created == true) {
+        timer_delete(session_timer->timer_id);
         /*
          * Temporary workaround for C++ programs, seems sometimes the timer doesn't
          * get disarmed in time, and tries to use memory that was already freed.
@@ -998,18 +996,20 @@ void thread_cleanup(void *args)
         usleep(100000);
     }
 
-    if (timer->l != NULL)
-        libnet_destroy(timer->l);
+    /* Clean up libnet context */
+    if (curr_session->l != NULL)
+        libnet_destroy(curr_session->l);
 
-    if (timer->sess_params->current_session->sockfd != 0)
-        close(timer->sess_params->current_session->sockfd);
+    /* Cleanup socket */
+    if (curr_session->sockfd != 0)
+        close(curr_session->sockfd);
 
     /*
      * If a session is not successfully configured, we don't call pthread_join on it,
      * only exit using pthread_exit. Calling pthread_detach here should automatically
      * release resources for unconfigured sessions.
      */
-    if (timer->is_session_configured == false)
+    if (curr_session->is_configured == false)
         pthread_detach(pthread_self());
 }
 
