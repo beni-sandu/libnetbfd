@@ -3,6 +3,13 @@ Change log
 
 All relevant changes are documented in this file.
 
+v0.2.1 - 2023-Feb-15
+-----------------
+* fix 3-way handshake when using timers under ~400ms
+* check Hop Limit for IPv6 sessions
+* include symbols in debug builds
+* group all session variables that are reset into a function (now includes detection time)
+
 v0.2 - 2022-10-11
 -----------------
 A lot of small changes/updates are not mentioned, check commit log for a full history.
