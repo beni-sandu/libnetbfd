@@ -287,24 +287,12 @@ void *bfd_session_run(void *args)
      * Check if source IP address is assigned on the local machine and if
      * the interface is UP.
      */
+    if (is_ip_live(curr_params->src_ip, curr_params->is_ipv6, if_name) == false) {
+        pr_debug("Provided source IP is not assigned or the interface is DOWN.\n");
 
-    if (curr_params->is_ipv6 == true) {
-        if (is_ip_live(curr_params->src_ip, true, if_name) == false) {
-            pr_debug("Provided source IP is not assigned or the interface is DOWN.\n");
-
-            if (curr_params->callback != NULL) {
-                callback_status.cb_ret = BFD_CB_IP_NOT_ASSIGN_OR_IF_DOWN;
-                curr_params->callback(&callback_status);
-            }
-        }
-    } else {
-        if (is_ip_live(curr_params->src_ip, false, if_name) == false) {
-            pr_debug("Provided source IP is not assigned or the interface is DOWN.\n");
-
-            if (curr_params->callback != NULL) {
-                callback_status.cb_ret = BFD_CB_IP_NOT_ASSIGN_OR_IF_DOWN;
-                curr_params->callback(&callback_status);
-            }
+        if (curr_params->callback != NULL) {
+            callback_status.cb_ret = BFD_CB_IP_NOT_ASSIGN_OR_IF_DOWN;
+            curr_params->callback(&callback_status);
         }
     }
 
