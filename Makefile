@@ -1,7 +1,7 @@
 STRICT_COMPILE = 0
 
 CFLAGS = -Wall
-LDFLAGS = -lnetbfd -lpthread -lrt -lcap -lnet
+LDFLAGS = -lpthread -lrt -lcap -lnet
 OUTDIR = build
 
 # Use VERBOSE=1 to echo all Makefile commands when running
@@ -45,7 +45,7 @@ libs:
 	$(Q)rm -rf $(OUTDIR) 2> /dev/null ||:
 	$(Q)mkdir $(OUTDIR)
 	$(Q)$(CC) -c $(CFLAGS) -fpic libnetbfd.c bfd_session.c bfd_packet.c
-	$(Q)$(CC) -shared -Wl,-soname,libnetbfd.so.$(VERSION) -o $(OUTDIR)/libnetbfd.so.$(VERSION) libnetbfd.o bfd_session.o bfd_packet.o
+	$(Q)$(CC) -shared -Wl,-soname,libnetbfd.so.$(VERSION) -o $(OUTDIR)/libnetbfd.so.$(VERSION) libnetbfd.o bfd_session.o bfd_packet.o $(LDFLAGS)
 	$(Q)rm *.o
 
 install:
@@ -59,7 +59,7 @@ uninstall:
 	$(Q)rm -rf $(PREFIX)/lib/libnetbfd.so* 2> /dev/null ||:
 
 test:
-	$(Q)$(CC) $(CFLAGS) $(bfd_test_FILES) -o $(TEST_BIN) $(LDFLAGS)
+	$(Q)$(CC) $(CFLAGS) $(bfd_test_FILES) -o $(TEST_BIN) -lnetbfd
 
 clean:
 	$(Q)rm -rf $(OUTDIR) 2> /dev/null ||:
