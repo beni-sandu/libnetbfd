@@ -795,8 +795,8 @@ void *bfd_session_run(void *args)
                         curr_session->local_state = BFD_STATE_INIT;
 
                         /* Reset detection time */
-                        if (curr_session->detection_time < 1000000)
-                            curr_session->detection_time = 1000000;
+                        if (curr_session->detection_time < 1250000)
+                            curr_session->detection_time = 1250000;
 
                         if (curr_params->callback != NULL) {
                             callback_status.cb_ret = BFD_CB_SESSION_INIT;
@@ -822,8 +822,8 @@ void *bfd_session_run(void *args)
                             }
                         } else {
                             /* Reset detection time */
-                            if (curr_session->detection_time < 1000000)
-                                curr_session->detection_time = 1000000;
+                            if (curr_session->detection_time < 1250000)
+                                curr_session->detection_time = 1250000;
                         }
                     }
                 else {   //curr_session->local_state = BFD_STATE_UP
@@ -1015,6 +1015,6 @@ void bfd_reset_session_state_vars(struct bfd_session *session)
     session->remote_min_rx_interval = 1;
 
     /* Reset detection time to min 1s */
-    if (session->detection_time < 1000000)
-        session->detection_time = 1000000;
+    if (session->detection_time < 1250000)
+        session->detection_time = 1250000;
 }
