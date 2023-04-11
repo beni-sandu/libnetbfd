@@ -48,26 +48,34 @@ void bfd_callback(struct cb_status *status) {
      *  4 - Remote signaled going DOWN
      *  5 - Remote signaled going ADMIN_DOWN
      *  6 - Source IP is not assigned, or the interface that is using it is DOWN
+     *  7 - Session is going into ADMIN_DOWN state
+     *  8 - Session is getting out of ADMIN_DOWN state
      */
 
     switch (status->cb_ret) {
-        case 1:
+        case BFD_CB_DETECT_TIME_EXPIRED:
             printf("Detected BFD remote [%s] going DOWN\n", status->session_params->dst_ip);
             break;
-        case 2:
+        case BFD_CB_SESSION_INIT:
             printf("Session [%s <--> %s] going to INIT.\n", status->session_params->src_ip, status->session_params->dst_ip);
             break;
-        case 3:
+        case BFD_CB_SESSION_UP:
             printf("Session [%s <--> %s] going to UP.\n", status->session_params->src_ip, status->session_params->dst_ip);
             break;
-        case 4:
+        case BFD_CB_REMOTE_SIGN_DOWN:
             printf("Remote [%s] signaled going DOWN\n", status->session_params->dst_ip);
             break;
-        case 5:
+        case BFD_CB_REMOTE_SIGN_ADMIN_DOWN:
             printf("Remote [%s] signaled going ADMIN_DOWN\n", status->session_params->dst_ip);
             break;
-        case 6:
+        case BFD_CB_IP_NOT_ASSIGN_OR_IF_DOWN:
             printf("Provided source IP is not assigned or the interface is DOWN.\n");
+            break;
+        case BFD_CB_SESSION_ENABLE_ADMIN_DOWN:
+            printf("Session [%s <--> %s] going into ADMIN_DOWN.\n", status->session_params->src_ip, status->session_params->dst_ip);
+            break;
+        case BFD_CB_SESSION_DISABLE_ADMIN_DOWN:
+            printf("Session [%s <--> %s] getting out of ADMIN_DOWN.\n", status->session_params->src_ip, status->session_params->dst_ip);
             break;
     }
 }
