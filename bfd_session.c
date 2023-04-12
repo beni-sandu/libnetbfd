@@ -572,7 +572,6 @@ void *bfd_session_run(void *args)
 
     /* Timer should be created, but we still get a NULL pointer sometimes */
     tx_timer.is_created = true;
-    pr_debug("TX timer ID: %p\n", tx_timer.timer_id);
 
     /* Copy params pointer to session node */
     session_node.session_params = curr_params;
@@ -590,7 +589,7 @@ void *bfd_session_run(void *args)
     bfd_update_timer(curr_session->op_tx, &tx_ts, &tx_timer);
 
 #ifdef DEBUG_ENABLE
-    libnet_diag_dump_context(l);
+    bfd_session_print_stats(pthread_self());
 #endif
 
     /* Loop for processing incoming packets */

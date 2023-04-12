@@ -328,6 +328,7 @@ void bfd_session_print_stats(bfd_session_id session_id)
     printf("%-25s %s\n", "Current state:", bfd_state2string(session->session_params->current_session->local_state));
     printf("%-25s %d\n", "Operational TX:", session->session_params->current_session->op_tx);
     printf("%-25s %d\n", "Detection time:", session->session_params->current_session->detection_time);
+    pr_debug("%-17s %p\n", "TX timer id:", session->session_params->current_session->session_timer->timer_id);
     printf("---------------------------------------------\n");
 
     pthread_rwlock_unlock(&rwlock);
