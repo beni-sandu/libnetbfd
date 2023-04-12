@@ -147,6 +147,7 @@ void *bfd_session_run(void *args)
         .msg_controllen = sizeof(recv_ctrldata)
     };
     int flag_enable = 1;
+    int ip_ret = -1;
 
     /* Initialize timer data */
     tx_timer.tx_ts = &tx_ts;
@@ -160,9 +161,10 @@ void *bfd_session_run(void *args)
      *  3 - Session is going to UP
      *  4 - Remote signaled going DOWN
      *  5 - Remote signaled going ADMIN_DOWN
-     *  6 - Source IP is not assigned, or the interface that is using it is DOWN
+     *  6 - Interface that is using the source IP is DOWN
      *  7 - Session is going into ADMIN_DOWN state
      *  8 - Session is getting out of ADMIN_DOWN state
+     *  9 - Provided source IP is not assigned on any interface
      */
     callback_status.cb_ret = BFD_CB_DEFAULT;
     callback_status.session_params = curr_params;
@@ -287,13 +289,26 @@ void *bfd_session_run(void *args)
      * Check if source IP address is assigned on the local machine and if
      * the interface is UP.
      */
-    if (is_ip_live(curr_params->src_ip, curr_params->is_ipv6, if_name) == false) {
-        pr_debug("Provided source IP is not assigned or the interface is DOWN.\n");
+    ip_ret = is_ip_live(curr_params->src_ip, curr_params->is_ipv6, if_name);
+    if (ip_ret == 1) {
+        pr_debug("Interface using the source IP is down.\n");
 
         if (curr_params->callback != NULL) {
-            callback_status.cb_ret = BFD_CB_IP_NOT_ASSIGN_OR_IF_DOWN;
+            callback_status.cb_ret = BFD_CB_INTERFACE_DOWN;
             curr_params->callback(&callback_status);
         }
+    } else if (ip_ret == -1) {
+        pr_debug("Source IP not assigned on any interface.\n");
+
+        if (curr_params->callback != NULL) {
+            callback_status.cb_ret = BFD_CB_SRC_IP_NOT_ASSIGNED;
+            curr_params->callback(&callback_status);
+        }
+
+        /* If IP is not assigned, we should just exit now, since the socket bind will fail below anyway */
+        current_thread->ret = -1;
+        sem_post(&current_thread->sem);
+        pthread_exit(NULL);
     }
 
     /* Save pointer to interface name */
@@ -384,7 +399,7 @@ void *bfd_session_run(void *args)
      * network namespace, don't specifically bind libnet to that device.
      */
     if (curr_params->is_ipv6 == true) {
-        if (is_ip_live(curr_params->dst_ip, true, NULL) == true) {
+        if (is_ip_live(curr_params->dst_ip, true, NULL) != -1) {
             pr_debug("Destination IP is on same machine/namespace.\n");
             l = libnet_init(
                 LIBNET_RAW6,                                /* injection type */
@@ -407,7 +422,7 @@ void *bfd_session_run(void *args)
         dst_ipv6 = libnet_name2addr6(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE);
     }
     else {
-        if (is_ip_live(curr_params->dst_ip, false, NULL) == true) {
+        if (is_ip_live(curr_params->dst_ip, false, NULL) != -1) {
             pr_debug("Destination IP is on same machine/namespace.\n");
             l = libnet_init(
                 LIBNET_RAW4,                                /* injection type */

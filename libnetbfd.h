@@ -111,7 +111,7 @@ const char *netbfd_lib_version(void);
 int get_ttl_or_hopl(struct msghdr *recv_msg, bool is_ipv6);
 void print_log(char *log_file, const char *format, ...) __attribute__ ((format (gnu_printf, 2, 3)));
 void bfd_session_change_param(bfd_session_id session_id, enum bfd_param param, uint32_t new_value);
-bool is_ip_live(char *ip_addr, bool is_ipv6, char *if_name);
+int is_ip_live(char *ip_addr, bool is_ipv6, char *if_name);
 
 #ifdef __cplusplus
 }

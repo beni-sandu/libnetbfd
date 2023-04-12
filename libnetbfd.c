@@ -452,15 +452,16 @@ void print_log(char *log_file, const char *format, ...)
     fclose(file);
 }
 
-/*
- * Check if provided IP address is assigned on the local machine
- * and if it is, return true only if the interface that is using it
- * is UP. For any other scenario, return false.
- *
- * If we return true, also copy the interface name in buffer pointed
- * by 3rd argument.
+/* 
+ * Check if provided IP address is assigned and if the interface using it is up.
+ * If IP is found, name of interface is copied in buffer pointed by 3rd argument.
+ * 
+ * Return:
+ *     -1   - IP is not assigned on any interface
+ *      0   - IP is assigned and the interface is up
+ *      1   - IP is assigned but the interface is down
  */
-bool is_ip_live(char *ip_addr, bool is_ipv6, char *if_name)
+int is_ip_live(char *ip_addr, bool is_ipv6, char *if_name)
 {
     struct ifaddrs *addrs, *ifp;
 
@@ -482,18 +483,16 @@ bool is_ip_live(char *ip_addr, bool is_ipv6, char *if_name)
                 inet_ntop(AF_INET6, &(sa->sin6_addr), conv_ip, INET6_ADDRSTRLEN);
 
                 if (strcmp(ip_addr, conv_ip) == 0) {
-
-                    /* We found the interface, check if it's up */
+                    /* We found the interface, copy the name */
+                    if (if_name != NULL)
+                        strcpy(if_name, ifp->ifa_name);
+                    /* Is the interface up? */
                     if (ifp->ifa_flags & IFF_UP) {
-                        pr_debug("Interface %s with IP %s is UP.\n", ifp->ifa_name, ip_addr);
-                        if (if_name != NULL)
-                            strcpy(if_name, ifp->ifa_name);
                         freeifaddrs(addrs);
-                        return true;
+                        return 0;
                     } else {
-                        pr_debug("Interface %s with IP %s is DOWN.\n", ifp->ifa_name, ip_addr);
                         freeifaddrs(addrs);
-                        return false;
+                        return 1;
                     }
                 }
             }
@@ -505,18 +504,16 @@ bool is_ip_live(char *ip_addr, bool is_ipv6, char *if_name)
                 inet_ntop(AF_INET, &(sa->sin_addr), conv_ip, INET_ADDRSTRLEN);
 
                 if (strcmp(ip_addr, conv_ip) == 0) {
-
-                    /* We found the interface, check if it's up */
+                    /* We found the interface, copy the name */
+                    if (if_name != NULL)
+                        strcpy(if_name, ifp->ifa_name);
+                    /* Is the interface up? */
                     if (ifp->ifa_flags & IFF_UP) {
-                        pr_debug("Interface %s with IP %s is UP.\n", ifp->ifa_name, ip_addr);
-                        if (if_name != NULL)
-                            strcpy(if_name, ifp->ifa_name);
                         freeifaddrs(addrs);
-                        return true;
+                        return 0;
                     } else {
-                        pr_debug("Interface %s with IP %s is DOWN.\n", ifp->ifa_name, ip_addr);
                         freeifaddrs(addrs);
-                        return false;
+                        return 1;
                     }
                 }
             }
@@ -527,5 +524,5 @@ bool is_ip_live(char *ip_addr, bool is_ipv6, char *if_name)
     /* No interface with the provided IP found */
     freeifaddrs(addrs);
 
-    return false;
+    return -1;
 }
