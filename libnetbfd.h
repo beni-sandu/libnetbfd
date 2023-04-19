@@ -47,6 +47,7 @@ extern "C" {
 #endif
 
 struct bfd_session_node {
+    struct bfd_session *current_session;
     struct bfd_session_params *session_params;
     struct bfd_session_node *next;
 };
@@ -55,6 +56,7 @@ struct bfd_thread {
     sem_t sem;
     sem_t s_id_sem;
     struct bfd_session_params *session_params;
+    struct bfd_session *current_session;
     int ret;
 };
 

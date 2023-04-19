@@ -91,7 +91,6 @@ struct bfd_session_params {
     uint32_t req_min_rx_interval;                           /* Required min RX interval for current session, BFD specific */
     uint32_t detect_mult;                                   /* Detection multiplier for current session, BFD specific */
     void (*callback)(struct cb_status *status);             /* Session callback */
-    struct bfd_session *current_session;                    /* Pointer to current BFD session */
     uint8_t dscp;                                           /* IP differentiated services code point */
     char net_ns[NET_NS_SIZE];                               /* Network namespace name */
     uint16_t src_port;                                      /* Source port */

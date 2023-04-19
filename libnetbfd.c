@@ -90,20 +90,20 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
         return;
     }
 
-    struct cb_status *sess_cb_status = session->session_params->current_session->curr_sess_cb_status;
+    struct cb_status *sess_cb_status = session->current_session->curr_sess_cb_status;
 
     switch (cmd) {
         case SESSION_ENABLE_ADMIN_DOWN:
 
-            if (session->session_params->current_session->local_state != BFD_STATE_ADMIN_DOWN) {
+            if (session->current_session->local_state != BFD_STATE_ADMIN_DOWN) {
                 pr_debug("Putting session: %ld into ADMIN_DOWN.\n", session_id);
 
                 /* Save the current diag code */
-                session->session_params->current_session->prev_bfd_diag = session->session_params->current_session->local_diag;
+                session->current_session->prev_bfd_diag = session->current_session->local_diag;
 
                 /* Adjust state/diag/calback code for ADMIN_DOWN */
-                session->session_params->current_session->local_state = BFD_STATE_ADMIN_DOWN;
-                session->session_params->current_session->local_diag = BFD_DIAG_ADMIN_DOWN;
+                session->current_session->local_state = BFD_STATE_ADMIN_DOWN;
+                session->current_session->local_diag = BFD_DIAG_ADMIN_DOWN;
                 sess_cb_status->cb_ret = BFD_CB_SESSION_ENABLE_ADMIN_DOWN;
 
                 if (session->session_params->callback != NULL) {
@@ -118,14 +118,14 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
 
         case SESSION_DISABLE_ADMIN_DOWN:
 
-            if (session->session_params->current_session->local_state == BFD_STATE_ADMIN_DOWN) {
+            if (session->current_session->local_state == BFD_STATE_ADMIN_DOWN) {
                 pr_debug("Getting session: %ld out of ADMIN_DOWN.\n", session_id);
 
                 /* Restore previous diag code */
-                session->session_params->current_session->local_diag = session->session_params->current_session->prev_bfd_diag;
+                session->current_session->local_diag = session->current_session->prev_bfd_diag;
 
                 /* Adjust state/callback for getting out of ADMIN_DOWN */
-                session->session_params->current_session->local_state = BFD_STATE_DOWN;
+                session->current_session->local_state = BFD_STATE_DOWN;
                 sess_cb_status->cb_ret = BFD_CB_SESSION_DISABLE_ADMIN_DOWN;
 
                 if (session->session_params->callback != NULL) {
@@ -155,7 +155,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
             if (req_min_rx_interval > 0)
                 session->session_params->req_min_rx_interval = req_min_rx_interval;
 
-            session->session_params->current_session->poll_in_progress = true;
+            session->current_session->poll_in_progress = true;
             pthread_rwlock_unlock(&rwlock);
 
             break;
@@ -261,12 +261,12 @@ void bfd_remove_session(struct bfd_session_node **head_ref, bfd_session_id sessi
 {
     struct bfd_session_node *it = *head_ref, *prev = NULL;
 
-    if (it != NULL && it->session_params->current_session->session_id == session_id) {
+    if (it != NULL && it->current_session->session_id == session_id) {
         *head_ref = it->next;
         return;
     }
 
-    while (it != NULL && it->session_params->current_session->session_id != session_id) {
+    while (it != NULL && it->current_session->session_id != session_id) {
         prev = it;
         it = it->next;
     }
@@ -282,7 +282,7 @@ struct bfd_session_node *bfd_find_session(bfd_session_id session_id)
     struct bfd_session_node *it = head;
 
     while (it != NULL) {
-        if (it->session_params->current_session->session_id == session_id)
+        if (it->current_session->session_id == session_id)
             return it;
         it = it->next;
     }
@@ -312,23 +312,23 @@ void bfd_session_print_stats(bfd_session_id session_id)
 
     printf("---------------------------------------------\n");
     printf("%-25s %s\n", "Timestamp:", timestamp);
-    printf("%-25s %ld\n", "Session ID:", session->session_params->current_session->session_id);
+    printf("%-25s %ld\n", "Session ID:", session->current_session->session_id);
     if (strlen(session->session_params->net_ns))
         printf("%-25s %s\n", "Network namespace:", session->session_params->net_ns);
     printf("%-25s %s\n", "Source IP:", session->session_params->src_ip);
     printf("%-25s %s\n", "Destination IP:", session->session_params->dst_ip);
-    printf("%-25s %d\n", "Source port:", session->session_params->current_session->src_port);
-    printf("%-25s %d\n", "Destination port:", session->session_params->current_session->dst_port);
-    printf("%-25s %s\n", "Device:", session->session_params->current_session->if_name);
+    printf("%-25s %d\n", "Source port:", session->current_session->src_port);
+    printf("%-25s %d\n", "Destination port:", session->current_session->dst_port);
+    printf("%-25s %s\n", "Device:", session->current_session->if_name);
     printf("%-25s %d\n", "DSCP:", session->session_params->dscp);
-    printf("%-25s %d\n", "Des min TX interval:", session->session_params->current_session->des_min_tx_interval);
-    printf("%-25s %d\n", "Req min RX interval:", session->session_params->current_session->req_min_rx_interval);
+    printf("%-25s %d\n", "Des min TX interval:", session->current_session->des_min_tx_interval);
+    printf("%-25s %d\n", "Req min RX interval:", session->current_session->req_min_rx_interval);
     printf("%-25s %d\n", "Detection Multiplier:", session->session_params->detect_mult);
-    printf("%-25s 0x%x\n", "My discriminator:", session->session_params->current_session->local_discr);
-    printf("%-25s %s\n", "Current state:", bfd_state2string(session->session_params->current_session->local_state));
-    printf("%-25s %d\n", "Operational TX:", session->session_params->current_session->op_tx);
-    printf("%-25s %d\n", "Detection time:", session->session_params->current_session->detection_time);
-    pr_debug("%-17s %p\n", "TX timer id:", session->session_params->current_session->session_timer->timer_id);
+    printf("%-25s 0x%x\n", "My discriminator:", session->current_session->local_discr);
+    printf("%-25s %s\n", "Current state:", bfd_state2string(session->current_session->local_state));
+    printf("%-25s %d\n", "Operational TX:", session->current_session->op_tx);
+    printf("%-25s %d\n", "Detection time:", session->current_session->detection_time);
+    pr_debug("%-17s %p\n", "TX timer id:", session->current_session->session_timer->timer_id);
     printf("---------------------------------------------\n");
 
     pthread_rwlock_unlock(&rwlock);
@@ -371,22 +371,22 @@ void bfd_session_print_stats_log(bfd_session_id session_id)
 
     fprintf(file, "---------------------------------------------\n");
     fprintf(file, "%-25s %s\n", "Timestamp:", timestamp);
-    fprintf(file, "%-25s %ld\n", "Session ID:", session->session_params->current_session->session_id);
+    fprintf(file, "%-25s %ld\n", "Session ID:", session->current_session->session_id);
     if (strlen(session->session_params->net_ns))
         fprintf(file, "%-25s %s\n", "Network namespace:", session->session_params->net_ns);
     fprintf(file, "%-25s %s\n", "Source IP:", session->session_params->src_ip);
     fprintf(file, "%-25s %s\n", "Destination IP:", session->session_params->dst_ip);
-    fprintf(file, "%-25s %d\n", "Source port:", session->session_params->current_session->src_port);
-    fprintf(file, "%-25s %d\n", "Destination port:", session->session_params->current_session->dst_port);
-    fprintf(file, "%-25s %s\n", "Device:", session->session_params->current_session->if_name);
+    fprintf(file, "%-25s %d\n", "Source port:", session->current_session->src_port);
+    fprintf(file, "%-25s %d\n", "Destination port:", session->current_session->dst_port);
+    fprintf(file, "%-25s %s\n", "Device:", session->current_session->if_name);
     fprintf(file, "%-25s %d\n", "DSCP:", session->session_params->dscp);
-    fprintf(file, "%-25s %d\n", "Des min TX interval:", session->session_params->current_session->des_min_tx_interval);
-    fprintf(file, "%-25s %d\n", "Req min RX interval:", session->session_params->current_session->req_min_rx_interval);
+    fprintf(file, "%-25s %d\n", "Des min TX interval:", session->current_session->des_min_tx_interval);
+    fprintf(file, "%-25s %d\n", "Req min RX interval:", session->current_session->req_min_rx_interval);
     fprintf(file, "%-25s %d\n", "Detection Multiplier:", session->session_params->detect_mult);
-    fprintf(file, "%-25s 0x%x\n", "My discriminator:", session->session_params->current_session->local_discr);
-    fprintf(file, "%-25s %s\n", "Current state:", bfd_state2string(session->session_params->current_session->local_state));
-    fprintf(file, "%-25s %d\n", "Operational TX:", session->session_params->current_session->op_tx);
-    fprintf(file, "%-25s %d\n", "Detection time:", session->session_params->current_session->detection_time);
+    fprintf(file, "%-25s 0x%x\n", "My discriminator:", session->current_session->local_discr);
+    fprintf(file, "%-25s %s\n", "Current state:", bfd_state2string(session->current_session->local_state));
+    fprintf(file, "%-25s %d\n", "Operational TX:", session->current_session->op_tx);
+    fprintf(file, "%-25s %d\n", "Detection time:", session->current_session->detection_time);
     fprintf(file, "---------------------------------------------\n");
     fclose(file);
 

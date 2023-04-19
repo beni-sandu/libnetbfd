@@ -119,18 +119,19 @@ void *bfd_session_run(void *args)
     memset(&session_parameters, 0, sizeof(struct bfd_session_params));
     memcpy(&session_parameters, current_thread->session_params, sizeof(struct bfd_session_params));
 
-    /* Replace the pointer with one to our copy */
-    current_thread->session_params = &session_parameters;
-
     /* Setup some more useful pointers */
     struct bfd_session_params *curr_params = &session_parameters;
     struct bfd_session new_session;
-    curr_params->current_session = &new_session;
-    struct bfd_session *curr_session = curr_params->current_session;
+    session_node.current_session = &new_session;
+    struct bfd_session *curr_session = session_node.current_session;
     curr_session->session_timer = &tx_timer;
     curr_session->pkt = &pkt;
     curr_session->udp_tag = &udp_tag;
     curr_session->is_configured = false;
+
+    /* Replace the pointers with our copy */
+    current_thread->session_params = &session_parameters;
+    current_thread->current_session = curr_session;
 
     sem_post(&current_thread->s_id_sem);
 
@@ -920,7 +921,7 @@ bfd_session_id bfd_session_start(struct bfd_session_params *params)
     sem_wait(&new_thread.s_id_sem);
 
     /* Copy the session id */
-    new_thread.session_params->current_session->session_id = session_id;
+    new_thread.current_session->session_id = session_id;
 
     sem_wait(&new_thread.sem);
 
