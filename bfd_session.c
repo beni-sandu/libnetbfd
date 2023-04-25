@@ -922,6 +922,7 @@ bfd_session_id bfd_session_start(struct bfd_session_params *params)
 
     /* Copy the session id */
     new_thread.current_session->session_id = session_id;
+    new_thread.current_session->curr_sess_cb_status->session_id = session_id;
 
     sem_wait(&new_thread.sem);
 

@@ -527,3 +527,19 @@ int is_ip_live(char *ip_addr, bool is_ipv6, char *if_name)
 
     return -1;
 }
+
+int bfd_session_get_local_diag(bfd_session_id session_id)
+{
+    pthread_rwlock_rdlock(&rwlock);
+    struct bfd_session_node *session = bfd_find_session(session_id);
+
+    if (session == NULL) {
+        fprintf(stderr, "Could not find a valid BFD session with that id.\n");
+        pthread_rwlock_unlock(&rwlock);
+        return -1;
+    }
+
+    pthread_rwlock_unlock(&rwlock);
+
+    return session->current_session->local_diag;
+}
