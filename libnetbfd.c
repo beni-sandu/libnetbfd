@@ -43,11 +43,14 @@
 struct bfd_session_node *head = NULL;
 pthread_rwlock_t rwlock = PTHREAD_RWLOCK_INITIALIZER;
 
+/* Prototypes */
+static struct bfd_session_node *bfd_find_session_in_list(bfd_session_id session_id);
+
 void bfd_session_change_param(bfd_session_id session_id, enum bfd_param param, uint32_t new_value)
 {
     /* Find the session that we're interested in */
     pthread_rwlock_wrlock(&rwlock);
-    struct bfd_session_node *session = bfd_find_session(session_id);
+    struct bfd_session_node *session = bfd_find_session_in_list(session_id);
 
     if (session == NULL) {
         fprintf(stderr, "Could not find a valid BFD session with that id.\n");
@@ -82,7 +85,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
     uint32_t des_min_tx_interval, uint32_t req_min_rx_interval)
 {
     pthread_rwlock_wrlock(&rwlock);
-    struct bfd_session_node *session = bfd_find_session(session_id);
+    struct bfd_session_node *session = bfd_find_session_in_list(session_id);
 
     if (session == NULL) {
         fprintf(stderr, "Could not find a valid BFD session with that id.\n");
@@ -251,33 +254,7 @@ bool is_ip_valid(char *ip, bool is_ipv6)
     return false;
 }
 
-void bfd_add_session(struct bfd_session_node **head_ref, struct bfd_session_node *new_node)
-{
-    new_node->next = (*head_ref);
-    (*head_ref) = new_node;
-}
-
-void bfd_remove_session(struct bfd_session_node **head_ref, bfd_session_id session_id)
-{
-    struct bfd_session_node *it = *head_ref, *prev = NULL;
-
-    if (it != NULL && it->current_session->session_id == session_id) {
-        *head_ref = it->next;
-        return;
-    }
-
-    while (it != NULL && it->current_session->session_id != session_id) {
-        prev = it;
-        it = it->next;
-    }
-
-    if (it == NULL)
-        return;
-
-    prev->next = it->next;
-}
-
-struct bfd_session_node *bfd_find_session(bfd_session_id session_id)
+static struct bfd_session_node *bfd_find_session_in_list(bfd_session_id session_id)
 {
     struct bfd_session_node *it = head;
 
@@ -297,7 +274,7 @@ void bfd_session_print_stats(bfd_session_id session_id)
     char timestamp[100];
 
     pthread_rwlock_rdlock(&rwlock);
-    struct bfd_session_node *session = bfd_find_session(session_id);
+    struct bfd_session_node *session = bfd_find_session_in_list(session_id);
 
     if (session == NULL) {
         fprintf(stderr, "Could not find a valid BFD session with that id.\n");
@@ -342,7 +319,7 @@ void bfd_session_print_stats_log(bfd_session_id session_id)
     FILE *file = NULL;
 
     pthread_rwlock_rdlock(&rwlock);
-    struct bfd_session_node *session = bfd_find_session(session_id);
+    struct bfd_session_node *session = bfd_find_session_in_list(session_id);
 
     if (session == NULL) {
         fprintf(stderr, "Could not find a valid BFD session with that id.\n");
@@ -531,7 +508,7 @@ int is_ip_live(char *ip_addr, bool is_ipv6, char *if_name)
 int bfd_session_get_local_diag(bfd_session_id session_id)
 {
     pthread_rwlock_rdlock(&rwlock);
-    struct bfd_session_node *session = bfd_find_session(session_id);
+    struct bfd_session_node *session = bfd_find_session_in_list(session_id);
 
     if (session == NULL) {
         fprintf(stderr, "Could not find a valid BFD session with that id.\n");

@@ -104,11 +104,8 @@ const char *bfd_diag2string(enum bfd_diag diag);
 void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
     uint32_t des_min_tx_interval, uint32_t req_min_rx_interval);
 bool is_ip_valid(char *ip, bool is_ipv6);
-void bfd_add_session(struct bfd_session_node **head, struct bfd_session_node *new_node);
-struct bfd_session_node *bfd_find_session(bfd_session_id session_id);
 void bfd_session_print_stats(bfd_session_id session_id);
 void bfd_session_print_stats_log(bfd_session_id session_id);
-void bfd_remove_session(struct bfd_session_node **head_ref, bfd_session_id session_id);
 const char *netbfd_lib_version(void);
 int get_ttl_or_hopl(struct msghdr *recv_msg, bool is_ipv6);
 void print_log(char *log_file, const char *format, ...) __attribute__ ((format (gnu_printf, 2, 3)));

@@ -81,6 +81,8 @@ void thread_cleanup(void *args);
 int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us);
 void *bfd_session_run(void *args);
 void bfd_reset_session_state_vars(struct bfd_session *session);
+static void bfd_add_session_to_list(struct bfd_session_node **head_ref, struct bfd_session_node *new_node);
+static void bfd_remove_session_from_list(struct bfd_session_node **head_ref, bfd_session_id session_id);
 
 int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us)
 {
@@ -579,7 +581,7 @@ void *bfd_session_run(void *args)
 
     /* Add the session to the list */
     pthread_rwlock_wrlock(&rwlock);
-    bfd_add_session(&head, &session_node);
+    bfd_add_session_to_list(&head, &session_node);
     pthread_rwlock_unlock(&rwlock);
 
     /* Session configuration is successful, return a valid session id */
@@ -939,7 +941,7 @@ void bfd_session_stop(bfd_session_id session_id)
 
         /* Remove session from list */
         pthread_rwlock_wrlock(&rwlock);
-        bfd_remove_session(&head, session_id);
+        bfd_remove_session_from_list(&head, session_id);
         pthread_rwlock_unlock(&rwlock);
 
         pr_debug("Stopping BFD session: %ld\n", session_id);
@@ -1033,4 +1035,30 @@ void bfd_reset_session_state_vars(struct bfd_session *session)
     /* Reset detection time to min 1s */
     if (session->detection_time < 1250000)
         session->detection_time = 1250000;
+}
+
+static void bfd_add_session_to_list(struct bfd_session_node **head_ref, struct bfd_session_node *new_node)
+{
+    new_node->next = (*head_ref);
+    (*head_ref) = new_node;
+}
+
+static void bfd_remove_session_from_list(struct bfd_session_node **head_ref, bfd_session_id session_id)
+{
+    struct bfd_session_node *it = *head_ref, *prev = NULL;
+
+    if (it != NULL && it->current_session->session_id == session_id) {
+        *head_ref = it->next;
+        return;
+    }
+
+    while (it != NULL && it->current_session->session_id != session_id) {
+        prev = it;
+        it = it->next;
+    }
+
+    if (it == NULL)
+        return;
+
+    prev->next = it->next;
 }
