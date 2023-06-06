@@ -33,6 +33,7 @@
 #include <time.h>
 #include <poll.h>
 #include <sys/capability.h>
+#include <ifaddrs.h>
 
 #include "bfd_packet.h"
 #include "bfd_session.h"
@@ -44,47 +45,51 @@
      _a > _b ? _a : _b; })
 
 /* Globals */
-pthread_mutex_t port_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t port_lock = PTHREAD_MUTEX_INITIALIZER;
 static uint16_t src_port = BFD_SRC_PORT_MIN;
 extern struct bfd_session_node *head;
 extern pthread_rwlock_t rwlock;
 
 /* Per thread variables */
-__thread libnet_t *l;                                        /* libnet context */
-__thread char libnet_errbuf[LIBNET_ERRBUF_SIZE];             /* libnet error buffer */
-__thread uint32_t src_ipv4;                                  /* Local IPv4 in binary form */
-__thread uint32_t dst_ipv4;                                  /* Remote IPv4 in binary form */
-__thread struct libnet_in6_addr dst_ipv6;                    /* Remote IPv6 in binary form */
-__thread struct libnet_in6_addr src_ipv6;                    /* Local IPv6 in binary form */
-__thread struct bfd_ctrl_packet pkt;                         /* BFD control packet that we send */
-__thread libnet_ptag_t udp_tag = 0, ip_tag = 0;              /* libnet tags */
-__thread int sockfd;                                         /* UDP socket file descriptor */
-__thread struct sockaddr_in sav4;                            /* IPv4 socket address */
-__thread struct sockaddr_in6 sav6;                           /* IPv6 socket address */
-__thread int ret;                                            /* Number of received bytes on socket */
-__thread struct bfd_ctrl_packet *bfdp;                       /* Pointer to BFD packet received from remote peer */
-__thread cap_t caps;
-__thread cap_flag_value_t cap_val;
-__thread struct cb_status callback_status;
-__thread int ns_fd;
-__thread char ns_buf[MAX_PATH] = "/run/netns/";
-__thread struct bfd_timer tx_timer;
-__thread struct sigevent tx_sev;
-__thread struct itimerspec tx_ts;
-__thread struct bfd_session_node session_node;
-__thread struct bfd_session_params session_parameters;      /* Copy of the session parameters */
-__thread char if_name[IFNAMSIZ];
+static __thread libnet_t *l;                                        /* libnet context */
+static __thread char libnet_errbuf[LIBNET_ERRBUF_SIZE];             /* libnet error buffer */
+static __thread uint32_t src_ipv4;                                  /* Local IPv4 in binary form */
+static __thread uint32_t dst_ipv4;                                  /* Remote IPv4 in binary form */
+static __thread struct libnet_in6_addr dst_ipv6;                    /* Remote IPv6 in binary form */
+static __thread struct libnet_in6_addr src_ipv6;                    /* Local IPv6 in binary form */
+static __thread struct bfd_ctrl_packet pkt;                         /* BFD control packet that we send */
+static __thread libnet_ptag_t udp_tag = 0, ip_tag = 0;              /* libnet tags */
+static __thread int sockfd;                                         /* UDP socket file descriptor */
+static __thread struct sockaddr_in sav4;                            /* IPv4 socket address */
+static __thread struct sockaddr_in6 sav6;                           /* IPv6 socket address */
+static __thread int ret;                                            /* Number of received bytes on socket */
+static __thread struct bfd_ctrl_packet *bfdp;                       /* Pointer to BFD packet received from remote peer */
+static __thread cap_t caps;
+static __thread cap_flag_value_t cap_val;
+static __thread struct cb_status callback_status;
+static __thread int ns_fd;
+static __thread char ns_buf[MAX_PATH] = "/run/netns/";
+static __thread struct bfd_timer tx_timer;
+static __thread struct sigevent tx_sev;
+static __thread struct itimerspec tx_ts;
+static __thread struct bfd_session_node session_node;
+static __thread struct bfd_session_params session_parameters;      /* Copy of the session parameters */
+static __thread char if_name[IFNAMSIZ];
 
 /* Forward declarations */
-void tx_timeout_handler(union sigval sv);
-void thread_cleanup(void *args);
-int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us);
-void *bfd_session_run(void *args);
-void bfd_reset_session_state_vars(struct bfd_session *session);
+static void tx_timeout_handler(union sigval sv);
+static void thread_cleanup(void *args);
+static int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us);
+static void *bfd_session_run(void *args);
+static void bfd_reset_session_state_vars(struct bfd_session *session);
 static void bfd_add_session_to_list(struct bfd_session_node **head_ref, struct bfd_session_node *new_node);
 static void bfd_remove_session_from_list(struct bfd_session_node **head_ref, bfd_session_id session_id);
+static int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *timer_data);
+static bool is_ip_valid(char *ip, bool is_ipv6);
+static int get_ttl_or_hopl(struct msghdr *recv_msg, bool is_ipv6);
+static int is_ip_live(char *ip_addr, bool is_ipv6, char *if_name);
 
-int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us)
+static int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us)
 {
     struct pollfd fds[1];
     struct timespec ts;
@@ -112,7 +117,7 @@ int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us)
 }
 
 /* Entry point of a new BFD session */
-void *bfd_session_run(void *args)
+static void *bfd_session_run(void *args)
 {
     /* Get a pointer to data passed to session start interface */
     struct bfd_thread *current_thread = (struct bfd_thread *)args;
@@ -294,14 +299,14 @@ void *bfd_session_run(void *args)
      */
     ip_ret = is_ip_live(curr_params->src_ip, curr_params->is_ipv6, if_name);
     if (ip_ret == 1) {
-        pr_debug("Interface using the source IP is down.\n");
+        bfd_pr_debug("Interface using the source IP is down.\n");
 
         if (curr_params->callback != NULL) {
             callback_status.cb_ret = BFD_CB_INTERFACE_DOWN;
             curr_params->callback(&callback_status);
         }
     } else if (ip_ret == -1) {
-        pr_debug("Source IP not assigned on any interface.\n");
+        bfd_pr_debug("Source IP not assigned on any interface.\n");
 
         if (curr_params->callback != NULL) {
             callback_status.cb_ret = BFD_CB_SRC_IP_NOT_ASSIGNED;
@@ -403,7 +408,7 @@ void *bfd_session_run(void *args)
      */
     if (curr_params->is_ipv6 == true) {
         if (is_ip_live(curr_params->dst_ip, true, NULL) != -1) {
-            pr_debug("Destination IP is on same machine/namespace.\n");
+            bfd_pr_debug("Destination IP is on same machine/namespace.\n");
             l = libnet_init(
                 LIBNET_RAW6,                                /* injection type */
                 NULL,                                       /* network interface */
@@ -426,7 +431,7 @@ void *bfd_session_run(void *args)
     }
     else {
         if (is_ip_live(curr_params->dst_ip, false, NULL) != -1) {
-            pr_debug("Destination IP is on same machine/namespace.\n");
+            bfd_pr_debug("Destination IP is on same machine/namespace.\n");
             l = libnet_init(
                 LIBNET_RAW4,                                /* injection type */
                 NULL,                                       /* network interface */
@@ -602,13 +607,13 @@ void *bfd_session_run(void *args)
 
         /* Check for new detect_mult */
         if ((curr_params->detect_mult != curr_session->detect_mult) && curr_params->detect_mult > 0) {
-            pr_debug("Change of detect_mult requested, new value: %d\n", curr_params->detect_mult);
+            bfd_pr_debug("Change of detect_mult requested, new value: %d\n", curr_params->detect_mult);
             curr_session->detect_mult = curr_params->detect_mult;
         }
 
         /* Check for new DSCP value */
         if ((curr_params->dscp != curr_session->dscp) && curr_params->dscp > 0) {
-            pr_debug("Change of DSCP value requested, new value: %d\n", curr_params->dscp);
+            bfd_pr_debug("Change of DSCP value requested, new value: %d\n", curr_params->dscp);
             curr_session->dscp = curr_params->dscp;
 
             /* Rebuild IP header with new DSCP */
@@ -679,7 +684,7 @@ void *bfd_session_run(void *args)
 
             /* If TTL/Hop limit is not 255, packet MUST be discarded (section 5 in RFC5881) */
             if (get_ttl_or_hopl(&recv_hdr, curr_params->is_ipv6) != 255) {
-                pr_debug("Wrong TTL value for received packet.\n");
+                bfd_pr_debug("Wrong TTL value for received packet.\n");
                 continue;
             }
 
@@ -688,44 +693,44 @@ void *bfd_session_run(void *args)
 
             /* If the version number is not correct (1), packet MUST be discarded */
             if (((bfdp->byte1.version >> 5) & 0x07) != 1) {
-                pr_debug("Wrong version number.\n");
+                bfd_pr_debug("Wrong version number.\n");
                 continue;
             }
 
             /* If the Length field is not correct, packet MUST be discarded */
             if (bfdp->length != BFD_PKG_MIN_SIZE) {
-                pr_debug("Wrong packet length.\n");
+                bfd_pr_debug("Wrong packet length.\n");
                 continue;
             }
 
             /* If the Detect Mult field = 0, packet MUST be discarded */
             if (bfdp->detect_mult == 0) {
-                pr_debug("Wrong detect mult.\n");
+                bfd_pr_debug("Wrong detect mult.\n");
                 continue;
             }
 
             /* If the Multipoint bit is != 0, packet MUST be discarded */
             if ((bfdp->byte2.multipoint & 0x01) != 0) {
-                pr_debug("Wrong multipoint setting.\n");
+                bfd_pr_debug("Wrong multipoint setting.\n");
                 continue;
             }
 
             /* If My Discr = 0, packet MUST be discarded */
             if (ntohl(bfdp->my_discr) == 0) {
-                pr_debug("Bad my_discr value.\n");
+                bfd_pr_debug("Bad my_discr value.\n");
                 continue;
             }
 
             /* If Your Discr = zero and State is not Down or AdminDown, packet MUST be discarded */
             if (ntohl(bfdp->your_discr) == 0 && ((((bfdp->byte2.state >> 6) & 0x03) != BFD_STATE_DOWN) ||
                     (((bfdp->byte2.state >> 6) & 0x03) == BFD_STATE_ADMIN_DOWN))) {
-                pr_debug("Bad state, zero your_discr.\n");
+                bfd_pr_debug("Bad state, zero your_discr.\n");
                 continue;
             }
 
             /* If A bit is set, packet MUST be discarded (we don't support authentication) */
             if (((bfdp->byte2.auth_present >> 2) & 0x01) == true) {
-                pr_debug("Authentication is not supported.\n");
+                bfd_pr_debug("Authentication is not supported.\n");
                 continue;
             }
 
@@ -746,7 +751,7 @@ void *bfd_session_run(void *args)
              * in the received packet is set, the Poll Sequence MUST be terminated.
              */
             if (curr_session->poll_in_progress == true && curr_session->remote_final == true) {
-                pr_debug("Finishing poll Sequence with remote: %s\n", curr_params->dst_ip);
+                bfd_pr_debug("Finishing poll Sequence with remote: %s\n", curr_params->dst_ip);
                 curr_session->poll_in_progress = false;
                 curr_session->local_poll = false;
             }
@@ -944,13 +949,13 @@ void bfd_session_stop(bfd_session_id session_id)
         bfd_remove_session_from_list(&head, session_id);
         pthread_rwlock_unlock(&rwlock);
 
-        pr_debug("Stopping BFD session: %ld\n", session_id);
+        bfd_pr_debug("Stopping BFD session: %ld\n", session_id);
         pthread_cancel(session_id);
         pthread_join(session_id, NULL);
     }
 }
 
-void tx_timeout_handler(union sigval sv)
+static void tx_timeout_handler(union sigval sv)
 {
     struct bfd_session *curr_session = sv.sival_ptr;
 
@@ -987,7 +992,7 @@ void tx_timeout_handler(union sigval sv)
     bfd_update_timer(tx_jitter, tx_ts, curr_session->session_timer);
 }
 
-void thread_cleanup(void *args)
+static void thread_cleanup(void *args)
 {
     struct bfd_session *curr_session = (struct bfd_session *)args;
     struct bfd_timer *session_timer = curr_session->session_timer;
@@ -1020,7 +1025,7 @@ void thread_cleanup(void *args)
 }
 
 /* Reset state variables when a session goes DOWN */
-void bfd_reset_session_state_vars(struct bfd_session *session)
+static void bfd_reset_session_state_vars(struct bfd_session *session)
 {
     /* Reset the operational TX to min 1s rate */
     if (session->op_tx < 1000000)
@@ -1061,4 +1066,146 @@ static void bfd_remove_session_from_list(struct bfd_session_node **head_ref, bfd
         return;
 
     prev->next = it->next;
+}
+
+static int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *timer_data)
+{
+    /* Update timer interval */
+    ts->it_interval.tv_sec = interval_us / 1000000;
+    ts->it_interval.tv_nsec = interval_us % 1000000 * 1000;
+    ts->it_value.tv_sec = interval_us / 1000000;
+    ts->it_value.tv_nsec = interval_us % 1000000 * 1000;
+
+    if (timer_settime(timer_data->timer_id, 0, ts, NULL) == -1) {
+        perror("timer settime");
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+static bool is_ip_valid(char *ip, bool is_ipv6)
+{
+    if (is_ipv6 == true) {
+        struct sockaddr_in6 sa;
+
+        int ret = inet_pton(AF_INET6, ip, &(sa.sin6_addr));
+
+        if (ret == 1)
+            return true;
+        else if (ret == 0)
+            return false;
+    }
+    else {
+        struct sockaddr_in sa;
+
+        int ret = inet_pton(AF_INET, ip, &(sa.sin_addr));
+
+        if (ret == 1)
+            return true;
+        else if (ret == 0)
+            return false;
+    }
+
+    return false;
+}
+
+static int get_ttl_or_hopl(struct msghdr *recv_msg, bool is_ipv6)
+{
+    int ttl_hopl = -1;
+
+    if (is_ipv6 == true) {
+        for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(recv_msg); cmsg != NULL; cmsg = CMSG_NXTHDR(recv_msg, cmsg)) {
+            if (cmsg->cmsg_level == IPPROTO_IPV6 && cmsg->cmsg_type == IPV6_HOPLIMIT) {
+                uint8_t *hopl_ptr = (uint8_t *)CMSG_DATA(cmsg);
+                ttl_hopl = *hopl_ptr;
+                break;
+            }
+        }
+    } else {
+        for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(recv_msg); cmsg != NULL; cmsg = CMSG_NXTHDR(recv_msg, cmsg)) {
+            if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_TTL) {
+                uint8_t *ttl_ptr = (uint8_t *)CMSG_DATA(cmsg);
+                ttl_hopl = *ttl_ptr;
+                break;
+            }
+        }
+    }
+
+    return ttl_hopl;
+}
+
+/* 
+ * Check if provided IP address is assigned and if the interface using it is up.
+ * If IP is found, name of interface is copied in buffer pointed by 3rd argument.
+ * 
+ * Return:
+ *     -1   - IP is not assigned on any interface
+ *      0   - IP is assigned and the interface is up
+ *      1   - IP is assigned but the interface is down
+ */
+static int is_ip_live(char *ip_addr, bool is_ipv6, char *if_name)
+{
+    struct ifaddrs *addrs, *ifp;
+
+    /* Get a list of network interfaces on the system */
+    if (getifaddrs(&addrs) == -1) {
+        perror("getifaddrs");
+        return false;
+    }
+
+    /* Walk through the list and find the interface that uses our IP */
+    ifp = addrs;
+
+    while (ifp != NULL) {
+        if (is_ipv6 == true) {
+            if (ifp->ifa_addr && ifp->ifa_addr->sa_family == AF_INET6) {
+                struct sockaddr_in6 *sa = (struct sockaddr_in6 *)ifp->ifa_addr;
+                char conv_ip[INET6_ADDRSTRLEN];
+
+                inet_ntop(AF_INET6, &(sa->sin6_addr), conv_ip, INET6_ADDRSTRLEN);
+
+                if (strcmp(ip_addr, conv_ip) == 0) {
+                    /* We found the interface, copy the name */
+                    if (if_name != NULL)
+                        strcpy(if_name, ifp->ifa_name);
+                    /* Is the interface up? */
+                    if (ifp->ifa_flags & IFF_UP) {
+                        freeifaddrs(addrs);
+                        return 0;
+                    } else {
+                        freeifaddrs(addrs);
+                        return 1;
+                    }
+                }
+            }
+        } else {
+            if (ifp->ifa_addr && ifp->ifa_addr->sa_family == AF_INET) {
+                struct sockaddr_in *sa = (struct sockaddr_in *)ifp->ifa_addr;
+                char conv_ip[INET_ADDRSTRLEN];
+
+                inet_ntop(AF_INET, &(sa->sin_addr), conv_ip, INET_ADDRSTRLEN);
+
+                if (strcmp(ip_addr, conv_ip) == 0) {
+                    /* We found the interface, copy the name */
+                    if (if_name != NULL)
+                        strcpy(if_name, ifp->ifa_name);
+                    /* Is the interface up? */
+                    if (ifp->ifa_flags & IFF_UP) {
+                        freeifaddrs(addrs);
+                        return 0;
+                    } else {
+                        freeifaddrs(addrs);
+                        return 1;
+                    }
+                }
+            }
+        }
+        ifp = ifp->ifa_next;
+    }
+
+    /* No interface with the provided IP found */
+    freeifaddrs(addrs);
+
+    return -1;
 }

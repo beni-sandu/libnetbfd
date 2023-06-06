@@ -41,9 +41,9 @@ extern "C" {
 #define LIBNETBFD_VERSION "0.2.1"
 
 #ifdef DEBUG_ENABLE
-#define pr_debug(...) printf("[DEBUG] "__VA_ARGS__)
+#define bfd_pr_debug(...) printf("[DEBUG] "__VA_ARGS__)
 #else
-#define pr_debug(...)
+#define bfd_pr_debug(...)
 #endif
 
 struct bfd_session_node {
@@ -98,19 +98,15 @@ static inline void bfd_build_udp(struct bfd_ctrl_packet *pkt, uint16_t src_port,
 }
 
 /* Function prototypes */
-int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *btimer);
 const char *bfd_state2string(enum bfd_state state);
 const char *bfd_diag2string(enum bfd_diag diag);
 void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
     uint32_t des_min_tx_interval, uint32_t req_min_rx_interval);
-bool is_ip_valid(char *ip, bool is_ipv6);
 void bfd_session_print_stats(bfd_session_id session_id);
 void bfd_session_print_stats_log(bfd_session_id session_id);
 const char *netbfd_lib_version(void);
-int get_ttl_or_hopl(struct msghdr *recv_msg, bool is_ipv6);
-void print_log(char *log_file, const char *format, ...) __attribute__ ((format (gnu_printf, 2, 3)));
+void bfd_print_log(char *log_file, const char *format, ...) __attribute__ ((format (gnu_printf, 2, 3)));
 void bfd_session_change_param(bfd_session_id session_id, enum bfd_param param, uint32_t new_value);
-int is_ip_live(char *ip_addr, bool is_ipv6, char *if_name);
 int bfd_session_get_local_diag(bfd_session_id session_id);
 
 #ifdef __cplusplus

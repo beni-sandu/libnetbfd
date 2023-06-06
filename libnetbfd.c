@@ -28,7 +28,6 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 #include <net/if.h>
-#include <ifaddrs.h>
 #include <string.h>
 #include <stdbool.h>
 #include <signal.h>
@@ -99,7 +98,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
         case SESSION_ENABLE_ADMIN_DOWN:
 
             if (session->current_session->local_state != BFD_STATE_ADMIN_DOWN) {
-                pr_debug("Putting session: %ld into ADMIN_DOWN.\n", session_id);
+                bfd_pr_debug("Putting session: %ld into ADMIN_DOWN.\n", session_id);
 
                 /* Save the current diag code */
                 session->current_session->prev_bfd_diag = session->current_session->local_diag;
@@ -122,7 +121,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
         case SESSION_DISABLE_ADMIN_DOWN:
 
             if (session->current_session->local_state == BFD_STATE_ADMIN_DOWN) {
-                pr_debug("Getting session: %ld out of ADMIN_DOWN.\n", session_id);
+                bfd_pr_debug("Getting session: %ld out of ADMIN_DOWN.\n", session_id);
 
                 /* Restore previous diag code */
                 session->current_session->local_diag = session->current_session->prev_bfd_diag;
@@ -149,7 +148,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
                 return;
             }
 
-            pr_debug("BFD interval change requested for session [%s <--> %s], initiating Poll Sequence.\n", session->session_params->src_ip, session->session_params->dst_ip);
+            bfd_pr_debug("BFD interval change requested for session [%s <--> %s], initiating Poll Sequence.\n", session->session_params->src_ip, session->session_params->dst_ip);
 
             /* Is it a good idea to change both of them at the same time? Time(testing) will tell */
             if (des_min_tx_interval > 0)
@@ -168,22 +167,6 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
             pthread_rwlock_unlock(&rwlock);
             break;
     }
-}
-
-int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_timer *timer_data)
-{
-    /* Update timer interval */
-    ts->it_interval.tv_sec = interval_us / 1000000;
-    ts->it_interval.tv_nsec = interval_us % 1000000 * 1000;
-    ts->it_value.tv_sec = interval_us / 1000000;
-    ts->it_value.tv_nsec = interval_us % 1000000 * 1000;
-
-    if (timer_settime(timer_data->timer_id, 0, ts, 0) == -1) {
-        perror("timer settime");
-        return EXIT_FAILURE;
-    }
-
-    return EXIT_SUCCESS;
 }
 
 const char *bfd_state2string(enum bfd_state state)
@@ -226,32 +209,6 @@ const char *bfd_diag2string(enum bfd_diag diag)
     }
 
     return "UNKNOWN BFD DIAG";
-}
-
-bool is_ip_valid(char *ip, bool is_ipv6)
-{
-    if (is_ipv6 == true) {
-        struct sockaddr_in6 sa;
-
-        int ret = inet_pton(AF_INET6, ip, &(sa.sin6_addr));
-
-        if (ret == 1)
-            return true;
-        else if (ret == 0)
-            return false;
-    }
-    else {
-        struct sockaddr_in sa;
-
-        int ret = inet_pton(AF_INET, ip, &(sa.sin_addr));
-
-        if (ret == 1)
-            return true;
-        else if (ret == 0)
-            return false;
-    }
-
-    return false;
 }
 
 static struct bfd_session_node *bfd_find_session_in_list(bfd_session_id session_id)
@@ -305,7 +262,7 @@ void bfd_session_print_stats(bfd_session_id session_id)
     printf("%-25s %s\n", "Current state:", bfd_state2string(session->current_session->local_state));
     printf("%-25s %d\n", "Operational TX:", session->current_session->op_tx);
     printf("%-25s %d\n", "Detection time:", session->current_session->detection_time);
-    pr_debug("%-17s %p\n", "TX timer id:", session->current_session->session_timer->timer_id);
+    bfd_pr_debug("%-17s %p\n", "TX timer id:", session->current_session->session_timer->timer_id);
     printf("---------------------------------------------\n");
 
     pthread_rwlock_unlock(&rwlock);
@@ -376,32 +333,7 @@ const char *netbfd_lib_version(void)
     return ("libnetbfd version "LIBNETBFD_VERSION);
 }
 
-int get_ttl_or_hopl(struct msghdr *recv_msg, bool is_ipv6)
-{
-    int ttl_hopl = -1;
-
-    if (is_ipv6 == true) {
-        for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(recv_msg); cmsg != NULL; cmsg = CMSG_NXTHDR(recv_msg, cmsg)) {
-            if (cmsg->cmsg_level == IPPROTO_IPV6 && cmsg->cmsg_type == IPV6_HOPLIMIT) {
-                uint8_t *hopl_ptr = (uint8_t *)CMSG_DATA(cmsg);
-                ttl_hopl = *hopl_ptr;
-                break;
-            }
-        }
-    } else {
-        for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(recv_msg); cmsg != NULL; cmsg = CMSG_NXTHDR(recv_msg, cmsg)) {
-            if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_TTL) {
-                uint8_t *ttl_ptr = (uint8_t *)CMSG_DATA(cmsg);
-                ttl_hopl = *ttl_ptr;
-                break;
-            }
-        }
-    }
-
-    return ttl_hopl;
-}
-
-void print_log(char *log_file, const char *format, ...)
+void bfd_print_log(char *log_file, const char *format, ...)
 {
     va_list arg;
     time_t now;
@@ -428,81 +360,6 @@ void print_log(char *log_file, const char *format, ...)
     vfprintf(file, format, arg);
     va_end(arg);
     fclose(file);
-}
-
-/* 
- * Check if provided IP address is assigned and if the interface using it is up.
- * If IP is found, name of interface is copied in buffer pointed by 3rd argument.
- * 
- * Return:
- *     -1   - IP is not assigned on any interface
- *      0   - IP is assigned and the interface is up
- *      1   - IP is assigned but the interface is down
- */
-int is_ip_live(char *ip_addr, bool is_ipv6, char *if_name)
-{
-    struct ifaddrs *addrs, *ifp;
-
-    /* Get a list of network interfaces on the system */
-    if (getifaddrs(&addrs) == -1) {
-        perror("getifaddrs");
-        return false;
-    }
-
-    /* Walk through the list and find the interface that uses our IP */
-    ifp = addrs;
-
-    while (ifp != NULL) {
-        if (is_ipv6 == true) {
-            if (ifp->ifa_addr && ifp->ifa_addr->sa_family == AF_INET6) {
-                struct sockaddr_in6 *sa = (struct sockaddr_in6 *)ifp->ifa_addr;
-                char conv_ip[INET6_ADDRSTRLEN];
-
-                inet_ntop(AF_INET6, &(sa->sin6_addr), conv_ip, INET6_ADDRSTRLEN);
-
-                if (strcmp(ip_addr, conv_ip) == 0) {
-                    /* We found the interface, copy the name */
-                    if (if_name != NULL)
-                        strcpy(if_name, ifp->ifa_name);
-                    /* Is the interface up? */
-                    if (ifp->ifa_flags & IFF_UP) {
-                        freeifaddrs(addrs);
-                        return 0;
-                    } else {
-                        freeifaddrs(addrs);
-                        return 1;
-                    }
-                }
-            }
-        } else {
-            if (ifp->ifa_addr && ifp->ifa_addr->sa_family == AF_INET) {
-                struct sockaddr_in *sa = (struct sockaddr_in *)ifp->ifa_addr;
-                char conv_ip[INET_ADDRSTRLEN];
-
-                inet_ntop(AF_INET, &(sa->sin_addr), conv_ip, INET_ADDRSTRLEN);
-
-                if (strcmp(ip_addr, conv_ip) == 0) {
-                    /* We found the interface, copy the name */
-                    if (if_name != NULL)
-                        strcpy(if_name, ifp->ifa_name);
-                    /* Is the interface up? */
-                    if (ifp->ifa_flags & IFF_UP) {
-                        freeifaddrs(addrs);
-                        return 0;
-                    } else {
-                        freeifaddrs(addrs);
-                        return 1;
-                    }
-                }
-            }
-        }
-        ifp = ifp->ifa_next;
-    }
-
-    /* No interface with the provided IP found */
-    freeifaddrs(addrs);
-
-    return -1;
 }
 
 int bfd_session_get_local_diag(bfd_session_id session_id)
