@@ -140,8 +140,6 @@ static void *bfd_session_run(void *args)
     current_thread->session_params = &session_parameters;
     current_thread->current_session = curr_session;
 
-    sem_post(&current_thread->s_id_sem);
-
     /* Setup buffer and header structs for received packets */
     uint8_t recv_buf[BFD_PKG_MIN_SIZE];
     struct iovec recv_iov[1] = { { recv_buf, sizeof(recv_buf) } };
@@ -177,6 +175,8 @@ static void *bfd_session_run(void *args)
     callback_status.cb_ret = BFD_CB_DEFAULT;
     callback_status.session_params = curr_params;
     curr_session->curr_sess_cb_status = &callback_status;
+
+    sem_post(&current_thread->s_id_sem);
 
     pthread_cleanup_push(thread_cleanup, (void*)curr_session);
 
