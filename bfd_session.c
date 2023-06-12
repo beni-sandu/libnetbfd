@@ -48,7 +48,8 @@
 static pthread_mutex_t port_lock = PTHREAD_MUTEX_INITIALIZER;
 static uint16_t src_port = BFD_SRC_PORT_MIN;
 extern struct bfd_session_node *head;
-extern pthread_rwlock_t rwlock;
+extern pthread_rwlock_t read_lock;
+extern pthread_rwlock_t write_lock;
 
 /* Per thread variables */
 static __thread libnet_t *l;                                        /* libnet context */
@@ -585,9 +586,9 @@ static void *bfd_session_run(void *args)
     session_node.session_params = curr_params;
 
     /* Add the session to the list */
-    pthread_rwlock_wrlock(&rwlock);
+    pthread_rwlock_wrlock(&write_lock);
     bfd_add_session_to_list(&head, &session_node);
-    pthread_rwlock_unlock(&rwlock);
+    pthread_rwlock_unlock(&write_lock);
 
     /* Session configuration is successful, return a valid session id */
     curr_session->is_configured = true;
@@ -945,9 +946,9 @@ void bfd_session_stop(bfd_session_id session_id)
     if (session_id > 0) {
 
         /* Remove session from list */
-        pthread_rwlock_wrlock(&rwlock);
+        pthread_rwlock_wrlock(&write_lock);
         bfd_remove_session_from_list(&head, session_id);
-        pthread_rwlock_unlock(&rwlock);
+        pthread_rwlock_unlock(&write_lock);
 
         bfd_pr_debug("Stopping BFD session: %ld\n", session_id);
         pthread_cancel(session_id);
