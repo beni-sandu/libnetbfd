@@ -40,11 +40,19 @@ extern "C" {
 /* Library version */
 #define LIBNETBFD_VERSION "0.2.1"
 
+/* Print macros */
 #ifdef DEBUG_ENABLE
-#define bfd_pr_debug(...) printf("[DEBUG] "__VA_ARGS__)
+#define bfd_pr_debug(file, ...) \
+    ( {printf("[DEBUG] "__VA_ARGS__) ; bfd_pr_log(file, "[DEBUG] "__VA_ARGS__);} )
 #else
 #define bfd_pr_debug(...)
 #endif
+
+#define bfd_pr_info(file, ...) \
+    ( {printf("[INFO] "__VA_ARGS__) ; bfd_pr_log(file, "[INFO] "__VA_ARGS__);} )
+
+#define bfd_pr_error(file, ...) \
+    ( {fprintf(stderr, "[ERROR] "__VA_ARGS__) ; bfd_pr_log(file, "[ERROR] "__VA_ARGS__);})
 
 struct bfd_session_node {
     struct bfd_session *current_session;
@@ -105,7 +113,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
 void bfd_session_print_stats(bfd_session_id session_id);
 void bfd_session_print_stats_log(bfd_session_id session_id);
 const char *netbfd_lib_version(void);
-void bfd_print_log(char *log_file, const char *format, ...) __attribute__ ((format (gnu_printf, 2, 3)));
+void bfd_pr_log(char *log_file, const char *format, ...) __attribute__ ((format (gnu_printf, 2, 3)));
 void bfd_session_change_param(bfd_session_id session_id, enum bfd_param param, uint32_t new_value);
 int bfd_session_get_local_diag(bfd_session_id session_id);
 

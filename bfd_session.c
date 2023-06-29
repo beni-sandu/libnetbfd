@@ -105,7 +105,7 @@ static int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us)
     ret = ppoll(fds, 1, &ts, NULL);
 
     if (ret == -1) {
-        perror("ppoll"); //error in ppoll call
+        bfd_pr_error(NULL, "ppoll"); //error in ppoll call
     }
     else if (ret == 0) {
         return -2; //timeout expired
@@ -183,21 +183,21 @@ static void *bfd_session_run(void *args)
 
     /* Check if the required BFD specific parameters are valid */
     if (curr_params->detect_mult <= 0) {
-        fprintf(stderr, "Invalid Detection Multiplier value.\n");
+        bfd_pr_error(curr_params->log_file, "Invalid Detection Multiplier value.\n");
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
         pthread_exit(NULL);
     }
 
     if (curr_params->req_min_rx_interval <= 0) {
-        fprintf(stderr, "Invalid Required Min RX value.\n");
+        bfd_pr_error(curr_params->log_file, "Invalid Required Min RX value.\n");
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
         pthread_exit(NULL);
     }
 
     if (curr_params->des_min_tx_interval <= 0) {
-        fprintf(stderr, "Invalid Desired Min TX value.\n");
+        bfd_pr_error(curr_params->log_file, "Invalid Desired Min TX value.\n");
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
         pthread_exit(NULL);
@@ -206,14 +206,14 @@ static void *bfd_session_run(void *args)
     /* Check for CAP_NET_RAW capability */
     caps = cap_get_proc();
     if (caps == NULL) {
-        perror("cap_get_proc");
+        bfd_pr_error(curr_params->log_file, "cap_get_proc");
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
         pthread_exit(NULL);
     }
 
     if (cap_get_flag(caps, CAP_NET_RAW, CAP_EFFECTIVE, &cap_val) == -1) {
-        perror("cap_get_flag");
+        bfd_pr_error(curr_params->log_file, "cap_get_flag");
         cap_free(caps);
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
@@ -222,7 +222,7 @@ static void *bfd_session_run(void *args)
 
     if (cap_val != CAP_SET) {
         cap_free(caps);
-        fprintf(stderr, "Execution requires CAP_NET_RAW capability.\n");
+        bfd_pr_error(curr_params->log_file, "Execution requires CAP_NET_RAW capability.\n");
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
         pthread_exit(NULL);
@@ -238,14 +238,14 @@ static void *bfd_session_run(void *args)
         ns_fd = open(ns_buf, O_RDONLY);
 
         if (ns_fd == -1) {
-            perror("open ns fd");
+            bfd_pr_error(curr_params->log_file, "Cannot open namespace descriptor.\n");
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
 
         if (setns(ns_fd, CLONE_NEWNET) == -1) {
-            perror("set ns");
+            bfd_pr_error(curr_params->log_file, "Cannot set namespace.\n");
             close(ns_fd);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
@@ -258,28 +258,28 @@ static void *bfd_session_run(void *args)
     /* Check if provided IP addresses are valid before doing anything else with them */
     if (curr_params->is_ipv6 == true) {
         if (is_ip_valid(curr_params->src_ip, true) == false) {
-            fprintf(stderr, "Invalid source IPv6 address: %s\n", curr_params->src_ip);
+            bfd_pr_error(curr_params->log_file, "Invalid source IPv6 address: %s\n", curr_params->src_ip);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
 
         if (is_ip_valid(curr_params->dst_ip, true) == false) {
-            fprintf(stderr, "Invalid destination IPv6 address: %s\n", curr_params->dst_ip);
+            bfd_pr_error(curr_params->log_file, "Invalid destination IPv6 address: %s\n", curr_params->dst_ip);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
     } else {
         if (is_ip_valid(curr_params->src_ip, false) == false) {
-            fprintf(stderr, "Invalid source IPv4 address: %s\n", curr_params->src_ip);
+            bfd_pr_error(curr_params->log_file, "Invalid source IPv4 address: %s\n", curr_params->src_ip);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
 
         if (is_ip_valid(curr_params->dst_ip, false) == false) {
-            fprintf(stderr, "Invalid destination IPv4 address: %s\n", curr_params->dst_ip);
+            bfd_pr_error(curr_params->log_file, "Invalid destination IPv4 address: %s\n", curr_params->dst_ip);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -288,7 +288,7 @@ static void *bfd_session_run(void *args)
 
     /* Make sure source/destination IPs are different */
     if (strcmp(curr_params->src_ip, curr_params->dst_ip) == 0) {
-        fprintf(stderr, "Cannot use same IP address for both source/destination.\n");
+        bfd_pr_error(curr_params->log_file, "Cannot use same IP address for both source/destination.\n");
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
         pthread_exit(NULL);
@@ -300,14 +300,14 @@ static void *bfd_session_run(void *args)
      */
     ip_ret = is_ip_live(curr_params->src_ip, curr_params->is_ipv6, if_name);
     if (ip_ret == 1) {
-        bfd_pr_debug("Interface using the source IP is down.\n");
+        bfd_pr_debug(curr_params->log_file, "Interface using the source IP is down.\n");
 
         if (curr_params->callback != NULL) {
             callback_status.cb_ret = BFD_CB_INTERFACE_DOWN;
             curr_params->callback(&callback_status);
         }
     } else if (ip_ret == -1) {
-        bfd_pr_debug("Source IP not assigned on any interface.\n");
+        bfd_pr_debug(curr_params->log_file, "Source IP not assigned on any interface.\n");
 
         if (curr_params->callback != NULL) {
             callback_status.cb_ret = BFD_CB_SRC_IP_NOT_ASSIGNED;
@@ -326,7 +326,7 @@ static void *bfd_session_run(void *args)
     /* Create an UDP socket */
     if (curr_params->is_ipv6 == true) {
         if ((sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
-            perror("socket");
+            bfd_pr_error(curr_params->log_file, "Cannot create UDP socket.\n");
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -334,7 +334,7 @@ static void *bfd_session_run(void *args)
     }
     else {
         if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
-            perror("socket");
+            bfd_pr_error(curr_params->log_file, "Cannot create UDP socket.\n");
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -347,14 +347,14 @@ static void *bfd_session_run(void *args)
     /* Configure socket to read TTL/Hop Limit value */
     if (curr_params->is_ipv6 == true) {
         if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &flag_enable, sizeof(flag_enable)) < 0) {
-            fprintf(stderr, "Can't configure socket to read Hop Limit value.\n");
+            bfd_pr_error(curr_params->log_file, "Can't configure socket to read Hop Limit value.\n");
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
     } else {
         if (setsockopt(sockfd, IPPROTO_IP, IP_RECVTTL, &flag_enable, sizeof(flag_enable)) < 0) {
-            fprintf(stderr, "Can't configure socket to read TTL value.\n");
+            bfd_pr_error(curr_params->log_file, "Can't configure socket to read TTL value.\n");
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -363,7 +363,7 @@ static void *bfd_session_run(void *args)
 
     /* Make socket address reusable */
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &flag_enable, sizeof(flag_enable)) < 0) {
-        fprintf(stderr, "Can't configure socket address to be reused.\n");
+        bfd_pr_error(curr_params->log_file, "Can't configure socket address to be reused.\n");
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
         pthread_exit(NULL);
@@ -377,7 +377,7 @@ static void *bfd_session_run(void *args)
         sav6.sin6_port = htons(BFD_CTRL_PORT);
 
         if (bind(sockfd, (struct sockaddr *)&sav6, sizeof(sav6)) == -1) {
-            perror("bind");
+            bfd_pr_error(curr_params->log_file, "Cannot bind socket.\n");
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -390,7 +390,7 @@ static void *bfd_session_run(void *args)
         sav4.sin_port = htons(BFD_CTRL_PORT);
 
         if (bind(sockfd, (struct sockaddr *)&sav4, sizeof(sav4)) == -1) {
-            perror("bind");
+            bfd_pr_error(curr_params->log_file, "Cannot bind socket.\n");
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -409,7 +409,7 @@ static void *bfd_session_run(void *args)
      */
     if (curr_params->is_ipv6 == true) {
         if (is_ip_live(curr_params->dst_ip, true, NULL) != -1) {
-            bfd_pr_debug("Destination IP is on same machine/namespace.\n");
+            bfd_pr_debug(curr_params->log_file, "Destination IP is on same machine/namespace.\n");
             l = libnet_init(
                 LIBNET_RAW6,                                /* injection type */
                 NULL,                                       /* network interface */
@@ -421,7 +421,7 @@ static void *bfd_session_run(void *args)
                 libnet_errbuf);                             /* error buffer */
 
         if (l == NULL) {
-            fprintf(stderr, "libnet_init() failed: %s\n", libnet_errbuf);
+            bfd_pr_error(curr_params->log_file, "libnet_init() failed: %s\n", libnet_errbuf);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -432,7 +432,7 @@ static void *bfd_session_run(void *args)
     }
     else {
         if (is_ip_live(curr_params->dst_ip, false, NULL) != -1) {
-            bfd_pr_debug("Destination IP is on same machine/namespace.\n");
+            bfd_pr_debug(curr_params->log_file, "Destination IP is on same machine/namespace.\n");
             l = libnet_init(
                 LIBNET_RAW4,                                /* injection type */
                 NULL,                                       /* network interface */
@@ -444,7 +444,7 @@ static void *bfd_session_run(void *args)
                 libnet_errbuf);                             /* error buffer */
 
         if (l == NULL) {
-            fprintf(stderr, "libnet_init() failed: %s\n", libnet_errbuf);
+            bfd_pr_error(curr_params->log_file, "libnet_init() failed: %s\n", libnet_errbuf);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -507,7 +507,7 @@ static void *bfd_session_run(void *args)
         udp_tag);                                               /* libnet tag */
 
     if (udp_tag == -1) {
-        fprintf(stderr, "Can't build UDP header: %s\n", libnet_geterror(l));
+        bfd_pr_error(curr_params->log_file, "Can't build UDP header: %s\n", libnet_geterror(l));
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
         pthread_exit(NULL);
@@ -529,7 +529,7 @@ static void *bfd_session_run(void *args)
             ip_tag);                                            /* libnet tag */
 
         if (ip_tag == -1) {
-            fprintf(stderr, "Can't build IP header: %s\n", libnet_geterror(l));
+            bfd_pr_error(curr_params->log_file, "Can't build IP header: %s\n", libnet_geterror(l));
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -552,7 +552,7 @@ static void *bfd_session_run(void *args)
             ip_tag);                                            /* libnet tag */
 
         if (ip_tag == -1) {
-            fprintf(stderr, "Can't build IP header: %s\n", libnet_geterror(l));
+            bfd_pr_error(curr_params->log_file, "Can't build IP header: %s\n", libnet_geterror(l));
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -573,7 +573,7 @@ static void *bfd_session_run(void *args)
 
     /* Create TX timer */
     if (timer_create(CLOCK_REALTIME, &tx_sev, &(tx_timer.timer_id)) == -1) {
-        perror("timer_create");
+        bfd_pr_error(curr_params->log_file, "Cannot create TX timer.\n");
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
         pthread_exit(NULL);
@@ -608,13 +608,13 @@ static void *bfd_session_run(void *args)
 
         /* Check for new detect_mult */
         if ((curr_params->detect_mult != curr_session->detect_mult) && curr_params->detect_mult > 0) {
-            bfd_pr_debug("Change of detect_mult requested, new value: %d\n", curr_params->detect_mult);
+            bfd_pr_debug(curr_params->log_file, "Change of detect_mult requested, new value: %d\n", curr_params->detect_mult);
             curr_session->detect_mult = curr_params->detect_mult;
         }
 
         /* Check for new DSCP value */
         if ((curr_params->dscp != curr_session->dscp) && curr_params->dscp > 0) {
-            bfd_pr_debug("Change of DSCP value requested, new value: %d\n", curr_params->dscp);
+            bfd_pr_debug(curr_params->log_file, "Change of DSCP value requested, new value: %d\n", curr_params->dscp);
             curr_session->dscp = curr_params->dscp;
 
             /* Rebuild IP header with new DSCP */
@@ -633,7 +633,7 @@ static void *bfd_session_run(void *args)
                     ip_tag);                                            /* libnet tag */
 
                     if (ip_tag == -1) {
-                        fprintf(stderr, "Can't build IP header: %s\n", libnet_geterror(l));
+                        bfd_pr_error(curr_params->log_file, "Can't build IP header: %s\n", libnet_geterror(l));
                         continue;
                     }
             } else {
@@ -653,7 +653,7 @@ static void *bfd_session_run(void *args)
                     ip_tag);                                            /* libnet tag */
 
                 if (ip_tag == -1) {
-                    fprintf(stderr, "Can't build IP header: %s\n", libnet_geterror(l));
+                    bfd_pr_error(curr_params->log_file, "Can't build IP header: %s\n", libnet_geterror(l));
                     continue;
                 }
             }
@@ -685,7 +685,7 @@ static void *bfd_session_run(void *args)
 
             /* If TTL/Hop limit is not 255, packet MUST be discarded (section 5 in RFC5881) */
             if (get_ttl_or_hopl(&recv_hdr, curr_params->is_ipv6) != 255) {
-                bfd_pr_debug("Wrong TTL value for received packet.\n");
+                bfd_pr_debug(curr_params->log_file, "Wrong TTL value for received packet.\n");
                 continue;
             }
 
@@ -694,44 +694,44 @@ static void *bfd_session_run(void *args)
 
             /* If the version number is not correct (1), packet MUST be discarded */
             if (((bfdp->byte1.version >> 5) & 0x07) != 1) {
-                bfd_pr_debug("Wrong version number.\n");
+                bfd_pr_debug(curr_params->log_file, "Wrong protocol version number.\n");
                 continue;
             }
 
             /* If the Length field is not correct, packet MUST be discarded */
             if (bfdp->length != BFD_PKG_MIN_SIZE) {
-                bfd_pr_debug("Wrong packet length.\n");
+                bfd_pr_debug(curr_params->log_file, "Wrong packet length.\n");
                 continue;
             }
 
             /* If the Detect Mult field = 0, packet MUST be discarded */
             if (bfdp->detect_mult == 0) {
-                bfd_pr_debug("Wrong detect mult.\n");
+                bfd_pr_debug(curr_params->log_file, "Wrong detect mult.\n");
                 continue;
             }
 
             /* If the Multipoint bit is != 0, packet MUST be discarded */
             if ((bfdp->byte2.multipoint & 0x01) != 0) {
-                bfd_pr_debug("Wrong multipoint setting.\n");
+                bfd_pr_debug(curr_params->log_file, "Wrong multipoint setting.\n");
                 continue;
             }
 
             /* If My Discr = 0, packet MUST be discarded */
             if (ntohl(bfdp->my_discr) == 0) {
-                bfd_pr_debug("Bad my_discr value.\n");
+                bfd_pr_debug(curr_params->log_file, "Bad my_discr value.\n");
                 continue;
             }
 
             /* If Your Discr = zero and State is not Down or AdminDown, packet MUST be discarded */
             if (ntohl(bfdp->your_discr) == 0 && ((((bfdp->byte2.state >> 6) & 0x03) != BFD_STATE_DOWN) ||
                     (((bfdp->byte2.state >> 6) & 0x03) == BFD_STATE_ADMIN_DOWN))) {
-                bfd_pr_debug("Bad state, zero your_discr.\n");
+                bfd_pr_debug(curr_params->log_file, "Bad state, zero your_discr.\n");
                 continue;
             }
 
             /* If A bit is set, packet MUST be discarded (we don't support authentication) */
             if (((bfdp->byte2.auth_present >> 2) & 0x01) == true) {
-                bfd_pr_debug("Authentication is not supported.\n");
+                bfd_pr_debug(curr_params->log_file, "Authentication is not supported, discarding packet.\n");
                 continue;
             }
 
@@ -752,7 +752,7 @@ static void *bfd_session_run(void *args)
              * in the received packet is set, the Poll Sequence MUST be terminated.
              */
             if (curr_session->poll_in_progress == true && curr_session->remote_final == true) {
-                bfd_pr_debug("Finishing poll Sequence with remote: %s\n", curr_params->dst_ip);
+                bfd_pr_debug(curr_params->log_file, "Finishing poll Sequence with remote: %s\n", curr_params->dst_ip);
                 curr_session->poll_in_progress = false;
                 curr_session->local_poll = false;
             }
@@ -890,7 +890,7 @@ static void *bfd_session_run(void *args)
                 c = libnet_write(l);
 
                 if (c == -1) {
-                    fprintf(stderr, "Write error: %s\n", libnet_geterror(l));
+                    bfd_pr_error(curr_params->log_file, "Write error: %s\n", libnet_geterror(l));
                     continue;
                 }
             }
@@ -922,7 +922,7 @@ bfd_session_id bfd_session_start(struct bfd_session_params *params)
     ret = pthread_create(&session_id, NULL, bfd_session_run, (void *)&new_thread);
 
     if (ret) {
-        fprintf(stderr, "bfd_session_create for IP: %s failed, err: %d\n", params->src_ip, ret);
+        bfd_pr_error(NULL, "bfd_session_create for IP: %s failed, err: %d\n", params->src_ip, ret);
         return -1;
     }
 
@@ -950,7 +950,7 @@ void bfd_session_stop(bfd_session_id session_id)
         bfd_remove_session_from_list(&head, session_id);
         pthread_rwlock_unlock(&write_lock);
 
-        bfd_pr_debug("Stopping BFD session: %ld\n", session_id);
+        bfd_pr_debug(NULL, "Stopping BFD session: %ld\n", session_id);
         pthread_cancel(session_id);
         pthread_join(session_id, NULL);
     }
@@ -983,7 +983,7 @@ static void tx_timeout_handler(union sigval sv)
     c = libnet_write(l);
 
     if (c == -1) {
-        fprintf(stderr, "Write error: %s\n", libnet_geterror(l));
+        bfd_pr_error(NULL, "Write error: %s\n", libnet_geterror(l));
         pthread_exit(NULL);
     }
 
@@ -1078,7 +1078,7 @@ static int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_t
     ts->it_value.tv_nsec = interval_us % 1000000 * 1000;
 
     if (timer_settime(timer_data->timer_id, 0, ts, NULL) == -1) {
-        perror("timer settime");
+        bfd_pr_error(NULL, "Cannot update timer.\n");
         return EXIT_FAILURE;
     }
 
@@ -1151,7 +1151,7 @@ static int is_ip_live(char *ip_addr, bool is_ipv6, char *if_name)
 
     /* Get a list of network interfaces on the system */
     if (getifaddrs(&addrs) == -1) {
-        perror("getifaddrs");
+        bfd_pr_error(NULL, "Cannot get list of network interfaces.\n");
         return false;
     }
 
