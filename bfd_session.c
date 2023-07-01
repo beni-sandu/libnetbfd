@@ -161,6 +161,10 @@ static void *bfd_session_run(void *args)
     tx_timer.timer_id = NULL;
     tx_timer.is_created = false;
 
+    /* Initialize other session data */
+    curr_session->l = NULL;
+    curr_session->sockfd = 0;
+
     /*
      * Define some callback return codes here to cover cases that we're interested in (can be adjusted later if needed):
      *  1 - Session detected the remote peer going DOWN (detection time expired)
