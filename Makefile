@@ -50,6 +50,9 @@ libs:
 
 install:
 	$(Q)mkdir -p $(PREFIX)/include/libnetbfd
+	$(Q)if [ ! -d $(PREFIX)/lib ] ; then \
+			mkdir -p $(PREFIX)/lib ; \
+		fi
 	$(Q)cp -d $(OUTDIR)/libnetbfd.so* $(PREFIX)/lib
 	$(Q)cp *.h $(PREFIX)/include/libnetbfd
 	$(Q)ln -sf $(PREFIX)/lib/libnetbfd.so.$(VERSION) $(PREFIX)/lib/libnetbfd.so
