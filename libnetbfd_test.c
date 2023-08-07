@@ -68,7 +68,7 @@ int main(void) {
     };
 
     printf("Running with: %s\n", netbfd_lib_version());
-    pr_debug("NOTE: You are using a debug build.\n");
+    bfd_pr_debug(NULL, "NOTE: You are using a debug build.\n");
 
     s1 = bfd_session_start(&s1_params);
 
