@@ -3,6 +3,16 @@ Change log
 
 All relevant changes are documented in this file.
 
+v0.2.2
+-------
+* split all print functions into 3 macros that duplicate output to a log file, if available
+* convert most symbols to static
+* add a new `bfd_session_get_local_diag()` interface
+* BFD parameter struct no longer containers a pointer to current session
+* small rework of `is_ip_live()` to cover more scenarios
+* adjust detection timeout reset value to 1.25s
+* improve dependencies to LDFLAGS inside Makefile, so that an application using the library will only need to link with -lnetbfd
+
 v0.2.1 - 2023-Feb-15
 -----------------
 * fix 3-way handshake when using timers under ~400ms
