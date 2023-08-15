@@ -3,8 +3,9 @@ Change log
 
 All relevant changes are documented in this file.
 
-v0.2.2
--------
+v0.3 - 2023-Aug-15
+------------------
+* fix a possible double free scenario
 * split all print functions into 3 macros that duplicate output to a log file, if available
 * convert most symbols to static
 * add a new `bfd_session_get_local_diag()` interface

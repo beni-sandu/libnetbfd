@@ -38,7 +38,7 @@ extern "C" {
 #include "bfd_packet.h"
 
 /* Library version */
-#define LIBNETBFD_VERSION "0.2.1"
+#define LIBNETBFD_VERSION "0.3"
 
 /* Print macros */
 #ifdef DEBUG_ENABLE
