@@ -90,7 +90,7 @@ struct bfd_session_params {
     bool is_ipv6;                                           /* Flag to select type of IP session */
     uint32_t des_min_tx_interval;                           /* Desired min TX interval for current session, BFD specific */
     uint32_t req_min_rx_interval;                           /* Required min RX interval for current session, BFD specific */
-    uint32_t detect_mult;                                   /* Detection multiplier for current session, BFD specific */
+    uint8_t detect_mult;                                    /* Detection multiplier for current session, BFD specific */
     void (*callback)(struct cb_status *status);             /* Session callback */
     uint8_t dscp;                                           /* IP differentiated services code point */
     char net_ns[NET_NS_SIZE];                               /* Network namespace name */
@@ -116,11 +116,11 @@ struct bfd_session {
     uint32_t remote_des_min_tx_interval;
     uint32_t req_min_rx_interval;
     uint32_t remote_min_rx_interval;
-    uint32_t detection_time;
-    uint32_t remote_detect_mult;
+    uint64_t detection_time;
+    uint8_t remote_detect_mult;
     uint32_t op_tx;
     uint32_t final_op_tx;
-    uint32_t final_detection_time;
+    uint64_t final_detection_time;
     bool local_poll;
     bool local_final;
     bool remote_poll;

@@ -80,7 +80,7 @@ static __thread char if_name[IFNAMSIZ];
 /* Forward declarations */
 static void tx_timeout_handler(union sigval sv);
 static void thread_cleanup(void *args);
-static int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us);
+static int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, uint64_t timeout_us);
 static void *bfd_session_run(void *args);
 static void bfd_reset_session_state_vars(struct bfd_session *session);
 static void bfd_add_session_to_list(struct bfd_session_node **head_ref, struct bfd_session_node *new_node);
@@ -90,7 +90,7 @@ static bool is_ip_valid(char *ip, bool is_ipv6);
 static int get_ttl_or_hopl(struct msghdr *recv_msg, bool is_ipv6);
 static int is_ip_live(char *ip_addr, bool is_ipv6, char *if_name);
 
-static int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, int timeout_us)
+static int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, uint64_t timeout_us)
 {
     struct pollfd fds[1];
     struct timespec ts;
@@ -708,8 +708,8 @@ static void *bfd_session_run(void *args)
                 continue;
             }
 
-            /* If the Detect Mult field = 0, packet MUST be discarded */
-            if (bfdp->detect_mult == 0) {
+            /* If the Detect Mult field <= 0, packet MUST be discarded */
+            if (bfdp->detect_mult <= 0) {
                 bfd_pr_debug(curr_params->log_file, "Wrong detect mult.\n");
                 continue;
             }
@@ -720,14 +720,14 @@ static void *bfd_session_run(void *args)
                 continue;
             }
 
-            /* If My Discr = 0, packet MUST be discarded */
-            if (ntohl(bfdp->my_discr) == 0) {
+            /* If My Discr <= 0, packet MUST be discarded */
+            if (ntohl(bfdp->my_discr) <= 0) {
                 bfd_pr_debug(curr_params->log_file, "Bad my_discr value.\n");
                 continue;
             }
 
-            /* If Your Discr = zero and State is not Down or AdminDown, packet MUST be discarded */
-            if (ntohl(bfdp->your_discr) == 0 && ((((bfdp->byte2.state >> 6) & 0x03) != BFD_STATE_DOWN) ||
+            /* If Your Discr <= zero and State is not Down or AdminDown, packet MUST be discarded */
+            if (ntohl(bfdp->your_discr) <= 0 && ((((bfdp->byte2.state >> 6) & 0x03) != BFD_STATE_DOWN) ||
                     (((bfdp->byte2.state >> 6) & 0x03) == BFD_STATE_ADMIN_DOWN))) {
                 bfd_pr_debug(curr_params->log_file, "Bad state, zero your_discr.\n");
                 continue;

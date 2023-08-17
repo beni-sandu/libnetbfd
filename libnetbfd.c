@@ -265,7 +265,7 @@ void bfd_session_print_stats(bfd_session_id session_id)
     printf("%-25s 0x%x\n", "My discriminator:", session->current_session->local_discr);
     printf("%-25s %s\n", "Current state:", bfd_state2string(session->current_session->local_state));
     printf("%-25s %d\n", "Operational TX:", session->current_session->op_tx);
-    printf("%-25s %d\n", "Detection time:", session->current_session->detection_time);
+    printf("%-25s %lu\n", "Detection time:", session->current_session->detection_time);
 #ifdef DEBUG_ENABLE
     printf("%-25s %p\n", "[DEBUG] TX timer id:", session->current_session->session_timer->timer_id);
 #endif
@@ -326,7 +326,7 @@ void bfd_session_print_stats_log(bfd_session_id session_id)
     fprintf(file, "%-25s 0x%x\n", "My discriminator:", session->current_session->local_discr);
     fprintf(file, "%-25s %s\n", "Current state:", bfd_state2string(session->current_session->local_state));
     fprintf(file, "%-25s %d\n", "Operational TX:", session->current_session->op_tx);
-    fprintf(file, "%-25s %d\n", "Detection time:", session->current_session->detection_time);
+    fprintf(file, "%-25s %lu\n", "Detection time:", session->current_session->detection_time);
     fprintf(file, "---------------------------------------------\n");
     fclose(file);
 
