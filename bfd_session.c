@@ -106,15 +106,12 @@ static int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, uint64_t timeout_u
 
     if (ret == -1) {
         bfd_pr_error(NULL, "ppoll"); //error in ppoll call
-    }
-    else if (ret == 0) {
+        return -1;
+    } else if (ret == 0) {
         return -2; //timeout expired
-    }
-    else
+    } else
         if (fds[0].revents & POLLIN)
             return recvmsg(sockfd, recv_hdr, 0);
-
-    return EXIT_FAILURE;
 }
 
 /* Entry point of a new BFD session */
