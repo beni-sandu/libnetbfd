@@ -80,7 +80,7 @@ static __thread char if_name[IFNAMSIZ];
 /* Forward declarations */
 static void tx_timeout_handler(union sigval sv);
 static void thread_cleanup(void *args);
-static int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, uint64_t timeout_us);
+static ssize_t recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, uint64_t timeout_us);
 static void *bfd_session_run(void *args);
 static void bfd_reset_session_state_vars(struct bfd_session *session);
 static void bfd_add_session_to_list(struct bfd_session_node **head_ref, struct bfd_session_node *new_node);
@@ -90,7 +90,7 @@ static bool is_ip_valid(char *ip, bool is_ipv6);
 static int get_ttl_or_hopl(struct msghdr *recv_msg, bool is_ipv6);
 static int is_ip_live(char *ip_addr, bool is_ipv6, char *if_name);
 
-static int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, uint64_t timeout_us)
+static ssize_t recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, uint64_t timeout_us)
 {
     struct pollfd fds[1];
     struct timespec ts;
@@ -112,6 +112,8 @@ static int recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, uint64_t timeout_u
     } else
         if (fds[0].revents & POLLIN)
             return recvmsg(sockfd, recv_hdr, 0);
+
+    return -1;
 }
 
 /* Entry point of a new BFD session */
