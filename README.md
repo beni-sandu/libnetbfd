@@ -3,8 +3,8 @@ Bidirectional Forwarding Detection (BFD) networking protocol
 
 libnetbfd is a minimalistic library implementation of the Bidirectional Forwarding Detection networking protocol, mainly based on 2 standards:
 
-- [RFC8880](https://datatracker.ietf.org/doc/html/rfc5880)
-- [RFC8881](https://datatracker.ietf.org/doc/html/rfc5881)
+- [RFC5880](https://datatracker.ietf.org/doc/html/rfc5880)
+- [RFC5881](https://datatracker.ietf.org/doc/html/rfc5881)
 
 The protocol is intended to detect faults in the bidirectional path between two forwarding engines, including interfaces,
 data link(s), and to the extent possible the forwarding engines themselves, with potentially very low latency.  It operates
