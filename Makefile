@@ -3,6 +3,7 @@ STRICT_COMPILE = 0
 CFLAGS = -Wall
 LDFLAGS = -lpthread -lrt -lcap -lnet
 OUTDIR = build
+TESTDIR = tests
 
 # Use VERBOSE=1 to echo all Makefile commands when running
 VERBOSE ?= 0
@@ -25,11 +26,7 @@ CFLAGS += -Wbad-function-cast -Wformat-nonliteral -Wsuggest-attribute=format -Wi
 CFLAGS += -std=gnu99
 endif
 
-TEST_BIN = bfd_test
-
 VERSION = $(shell grep LIBNETBFD_VERSION libnetbfd.h | cut -d " " -f 3)
-
-bfd_test_FILES = libnetbfd_test.c
 
 # Use SDK environment if available
 CC = $(shell echo $$CC)
@@ -40,6 +37,9 @@ endif
 ifeq ($(PREFIX),)
     PREFIX := /usr/local
 endif
+
+# Pass on vars to submakes
+export
 
 libs:
 	$(Q)rm -rf $(OUTDIR) 2> /dev/null ||:
@@ -62,7 +62,12 @@ uninstall:
 	$(Q)rm -rf $(PREFIX)/lib/libnetbfd.so* 2> /dev/null ||:
 
 test:
-	$(Q)$(CC) $(CFLAGS) $(bfd_test_FILES) -o $(TEST_BIN) -lnetbfd
+	$(Q)$(MAKE) -C $(TESTDIR) bins
+
+test-run: test
+	$(Q)cd $(TESTDIR) ; \
+	sudo ./run.sh
 
 clean:
 	$(Q)rm -rf $(OUTDIR) 2> /dev/null ||:
+	$(Q)$(MAKE) -C $(TESTDIR) clean
