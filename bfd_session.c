@@ -303,14 +303,14 @@ static void *bfd_session_run(void *args)
      */
     ip_ret = is_ip_live(curr_params->src_ip, curr_params->is_ipv6, if_name);
     if (ip_ret == 1) {
-        bfd_pr_debug(curr_params->log_file, "Interface using the source IP is down.\n");
+        bfd_pr_error(curr_params->log_file, "Interface using the source IP is down.\n");
 
         if (curr_params->callback != NULL) {
             callback_status.cb_ret = BFD_CB_INTERFACE_DOWN;
             curr_params->callback(&callback_status);
         }
     } else if (ip_ret == -1) {
-        bfd_pr_debug(curr_params->log_file, "Source IP not assigned on any interface.\n");
+        bfd_pr_error(curr_params->log_file, "Source IP not assigned on any interface.\n");
 
         if (curr_params->callback != NULL) {
             callback_status.cb_ret = BFD_CB_SRC_IP_NOT_ASSIGNED;
