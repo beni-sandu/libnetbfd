@@ -4,10 +4,15 @@
 ip link del dev veth1 2>/dev/null || :
 ip link del dev veth2 2>/dev/null || :
 ip link add veth1 type veth peer veth2
-ip link set dev veth1 up
-ip link set dev veth2 up
 ip addr add 192.168.4.1/24 dev veth1
 ip addr add 192.168.4.2/24 dev veth2
+ip addr add 2001:db8::1:100/64 dev veth1
+ip addr add 2001:db8::1:101/64 dev veth2
+ip link set dev veth1 up
+ip link set dev veth2 up
+
+# Give some time for the interfaces to come up
+sleep 1
 
 # Run all tests from directory
 tests=$(find * -type f -name 'test_*')

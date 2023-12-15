@@ -8,20 +8,20 @@ int main(void)
     struct bfd_session_params s1_params = {
         .des_min_tx_interval = 1000000,   //in us
         .detect_mult = 3,
-        .dst_ip = "192.168.4.1",
-        .is_ipv6 = false,
+        .dst_ip = "2001:db8::1:101",
+        .is_ipv6 = true,
         .req_min_rx_interval = 1000000,   //in us
-        .src_ip = "192.168.4.2",
+        .src_ip = "2001:db8::1:100",
         .dscp = 48, //Network control (CS6)
     };
 
     struct bfd_session_params s2_params = {
         .des_min_tx_interval = 1000000,   //in us
         .detect_mult = 3,
-        .dst_ip = "192.168.4.2",
-        .is_ipv6 = false,
+        .dst_ip = "2001:db8::1:100",
+        .is_ipv6 = true,
         .req_min_rx_interval = 1000000,   //in us
-        .src_ip = "192.168.4.1",
+        .src_ip = "2001:db8::1:101",
         .dscp = 48, //Network control (CS6)
     };
 
