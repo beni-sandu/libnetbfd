@@ -4,6 +4,8 @@ CFLAGS = -Wall
 LDFLAGS = -lpthread -lrt -lcap -lnet
 OUTDIR = build
 TESTDIR = tests
+SRCDIR = library
+INCLDIR = include
 
 # Use VERBOSE=1 to echo all Makefile commands when running
 VERBOSE ?= 0
@@ -26,7 +28,7 @@ CFLAGS += -Wbad-function-cast -Wformat-nonliteral -Wsuggest-attribute=format -Wi
 CFLAGS += -std=gnu99
 endif
 
-VERSION = $(shell grep LIBNETBFD_VERSION libnetbfd.h | cut -d " " -f 3)
+VERSION = $(shell grep LIBNETBFD_VERSION $(INCLDIR)/libnetbfd.h | cut -d " " -f 3)
 
 # Use SDK environment if available
 CC = $(shell echo $$CC)
@@ -44,7 +46,7 @@ export
 libs:
 	$(Q)rm -rf $(OUTDIR) 2> /dev/null ||:
 	$(Q)mkdir $(OUTDIR)
-	$(Q)$(CC) -c $(CFLAGS) -fpic libnetbfd.c bfd_session.c bfd_packet.c
+	$(Q)$(CC) -c $(CFLAGS) -fpic $(SRCDIR)/libnetbfd.c $(SRCDIR)/bfd_session.c $(SRCDIR)/bfd_packet.c
 	$(Q)$(CC) -shared -Wl,-soname,libnetbfd.so.$(VERSION) -o $(OUTDIR)/libnetbfd.so.$(VERSION) libnetbfd.o bfd_session.o bfd_packet.o $(LDFLAGS)
 	$(Q)rm *.o
 
@@ -54,7 +56,7 @@ install:
 			mkdir -p $(PREFIX)/lib ; \
 		fi
 	$(Q)cp -d $(OUTDIR)/libnetbfd.so* $(PREFIX)/lib
-	$(Q)cp *.h $(PREFIX)/include/libnetbfd
+	$(Q)cp $(INCLDIR)/*.h $(PREFIX)/include/libnetbfd
 	$(Q)ln -sf $(PREFIX)/lib/libnetbfd.so.$(VERSION) $(PREFIX)/lib/libnetbfd.so
 
 uninstall:

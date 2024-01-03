@@ -35,9 +35,9 @@
 #include <sys/capability.h>
 #include <ifaddrs.h>
 
-#include "bfd_packet.h"
-#include "bfd_session.h"
-#include "libnetbfd.h"
+#include "../include/bfd_packet.h"
+#include "../include/bfd_session.h"
+#include "../include/libnetbfd.h"
 
 #define max(a, b) \
    ({ __typeof__ (a) _a = (a); \

@@ -26,8 +26,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "bfd_session.h"
-#include "bfd_packet.h"
+#include "../include/bfd_session.h"
+#include "../include/bfd_packet.h"
 
 void bfd_build_packet(enum bfd_diag diag, enum bfd_state state, bool poll, bool final, uint8_t detect_mult,
                 uint32_t my_discr, uint32_t your_discr, uint32_t des_min_tx_interval, uint32_t req_min_rx_interval,

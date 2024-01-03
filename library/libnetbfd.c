@@ -34,9 +34,9 @@
 #include <time.h>
 #include <libnet.h>
 
-#include "libnetbfd.h"
-#include "bfd_packet.h"
-#include "bfd_session.h"
+#include "../include/libnetbfd.h"
+#include "../include/bfd_packet.h"
+#include "../include/bfd_session.h"
 
 /* Globals */
 struct bfd_session_node *head = NULL;
