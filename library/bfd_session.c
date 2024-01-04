@@ -874,8 +874,6 @@ static void *bfd_session_run(void *args)
              * This has to be done as soon as practicable, without respect to the transmission timer.
              */
             if (curr_session->remote_poll == true) {
-
-                int c = 0;
                 
                 curr_session->remote_poll_in_progress = true;
                 curr_session->local_poll = false;
@@ -890,9 +888,7 @@ static void *bfd_session_run(void *args)
                 bfd_build_udp(&pkt, curr_session->src_port, &udp_tag, l);
 
                 /* Send BFD packet on wire */
-                c = libnet_write(l);
-
-                if (c == -1) {
+                if (libnet_write(l) == -1) {
                     bfd_pr_error(curr_params->log_file, "Write error: %s\n", libnet_geterror(l));
                     continue;
                 }
@@ -965,7 +961,6 @@ static void tx_timeout_handler(union sigval sv)
 
     uint32_t jitt_maxpercent;
     uint32_t tx_jitter;
-    int c;
     struct bfd_ctrl_packet *pkt = curr_session->pkt;
     libnet_ptag_t *udp_tag = curr_session->udp_tag;
     libnet_t *l = curr_session->l;
@@ -983,9 +978,7 @@ static void tx_timeout_handler(union sigval sv)
     bfd_build_udp(pkt, curr_session->src_port, udp_tag, l);
 
     /* Send BFD packet on wire */
-    c = libnet_write(l);
-
-    if (c == -1) {
+    if (libnet_write(l) == -1) {
         bfd_pr_error(NULL, "Write error: %s\n", libnet_geterror(l));
         pthread_exit(NULL);
     }
