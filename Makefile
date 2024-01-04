@@ -68,7 +68,7 @@ test:
 
 test-run: test
 	$(Q)cd $(TESTDIR) ; \
-	sudo ./run.sh
+	./run.sh
 
 clean:
 	$(Q)rm -rf $(OUTDIR) 2> /dev/null ||:
