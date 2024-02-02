@@ -366,3 +366,19 @@ int bfd_session_get_local_diag(bfd_session_id session_id)
 
     return session->current_session->local_diag;
 }
+
+int bfd_session_get_local_state(bfd_session_id session_id)
+{
+    pthread_rwlock_rdlock(&read_lock);
+    struct bfd_session_node *session = bfd_find_session_in_list(session_id);
+
+    if (session == NULL) {
+        bfd_pr_error(NULL, "Could not find a valid BFD session with that id.\n");
+        pthread_rwlock_unlock(&read_lock);
+        return -1;
+    }
+
+    pthread_rwlock_unlock(&read_lock);
+
+    return session->current_session->local_state;
+}

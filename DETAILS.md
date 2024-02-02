@@ -122,6 +122,14 @@ int bfd_session_get_local_diag(bfd_session_id session_id);
 
 
 /*
+ * Get value of current local state from session.
+ *
+ * @session_id:             BFD session id
+ */
+int bfd_session_get_local_state(bfd_session_id session_id);
+
+
+/*
  * Return a string describing library version.
  */
 const char *netbfd_lib_version(void);

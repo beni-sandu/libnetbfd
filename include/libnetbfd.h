@@ -96,6 +96,7 @@ const char *netbfd_lib_version(void);
 void bfd_pr_log(char *log_file, const char *format, ...) __attribute__ ((format (gnu_printf, 2, 3)));
 void bfd_session_change_param(bfd_session_id session_id, enum bfd_param param, uint32_t new_value);
 int bfd_session_get_local_diag(bfd_session_id session_id);
+int bfd_session_get_local_state(bfd_session_id session_id);
 
 #ifdef __cplusplus
 }
