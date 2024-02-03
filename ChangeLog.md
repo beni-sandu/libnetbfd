@@ -3,6 +3,15 @@ Change log
 
 All relevant changes are documented in this file.
 
+v0.3.1 - TBD
+------------------
+* add a `bfd_session_get_local_state()` interface
+* use SPDX-License-Identifier in source files/headers
+* start working on an initial testing framework
+* clean up repository layout
+* use monotonic clock for timers instead of realtime
+* fix some data types and return values for `recvmsg_ppoll()`
+
 v0.3 - 2023-Aug-15
 ------------------
 * fix a possible double free scenario
