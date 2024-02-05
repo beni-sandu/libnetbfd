@@ -33,7 +33,7 @@ extern pthread_rwlock_t write_lock;
 
 /* Per thread variables */
 static __thread libnet_t *l;                                        /* libnet context */
-static __thread char libnet_errbuf[LIBNET_ERRBUF_SIZE];             /* libnet error buffer */
+static __thread char errbuf[LIBNET_ERRBUF_SIZE];                    /* error buffer */
 static __thread uint32_t src_ipv4;                                  /* Local IPv4 in binary form */
 static __thread uint32_t dst_ipv4;                                  /* Remote IPv4 in binary form */
 static __thread struct libnet_in6_addr dst_ipv6;                    /* Remote IPv6 in binary form */
@@ -85,7 +85,7 @@ static ssize_t recvmsg_ppoll(int sockfd, struct msghdr *recv_hdr, uint64_t timeo
     ret = ppoll(fds, 1, &ts, NULL);
 
     if (ret == -1) {
-        bfd_pr_error(NULL, "ppoll"); //error in ppoll call
+        bfd_pr_error(NULL, "ppoll: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE)); //error in ppoll call
         return -1;
     } else if (ret == 0) {
         return -2; //timeout expired
@@ -189,14 +189,14 @@ static void *bfd_session_run(void *args)
     /* Check for CAP_NET_RAW capability */
     caps = cap_get_proc();
     if (caps == NULL) {
-        bfd_pr_error(curr_params->log_file, "cap_get_proc");
+        bfd_pr_error(curr_params->log_file, "cap_get_proc: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
         pthread_exit(NULL);
     }
 
     if (cap_get_flag(caps, CAP_NET_RAW, CAP_EFFECTIVE, &cap_val) == -1) {
-        bfd_pr_error(curr_params->log_file, "cap_get_flag");
+        bfd_pr_error(curr_params->log_file, "cap_get_flag: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
         cap_free(caps);
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
@@ -221,14 +221,14 @@ static void *bfd_session_run(void *args)
         ns_fd = open(ns_buf, O_RDONLY);
 
         if (ns_fd == -1) {
-            bfd_pr_error(curr_params->log_file, "Cannot open namespace descriptor.\n");
+            bfd_pr_error(curr_params->log_file, "Cannot open namespace descriptor: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
 
         if (setns(ns_fd, CLONE_NEWNET) == -1) {
-            bfd_pr_error(curr_params->log_file, "Cannot set namespace.\n");
+            bfd_pr_error(curr_params->log_file, "Cannot set namespace: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
             close(ns_fd);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
@@ -309,7 +309,7 @@ static void *bfd_session_run(void *args)
     /* Create an UDP socket */
     if (curr_params->is_ipv6 == true) {
         if ((sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
-            bfd_pr_error(curr_params->log_file, "Cannot create UDP socket.\n");
+            bfd_pr_error(curr_params->log_file, "Cannot create UDP socket: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -317,7 +317,7 @@ static void *bfd_session_run(void *args)
     }
     else {
         if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
-            bfd_pr_error(curr_params->log_file, "Cannot create UDP socket.\n");
+            bfd_pr_error(curr_params->log_file, "Cannot create UDP socket: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -330,14 +330,14 @@ static void *bfd_session_run(void *args)
     /* Configure socket to read TTL/Hop Limit value */
     if (curr_params->is_ipv6 == true) {
         if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &flag_enable, sizeof(flag_enable)) < 0) {
-            bfd_pr_error(curr_params->log_file, "Can't configure socket to read Hop Limit value.\n");
+            bfd_pr_error(curr_params->log_file, "Can't configure socket to read Hop Limit value: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
     } else {
         if (setsockopt(sockfd, IPPROTO_IP, IP_RECVTTL, &flag_enable, sizeof(flag_enable)) < 0) {
-            bfd_pr_error(curr_params->log_file, "Can't configure socket to read TTL value.\n");
+            bfd_pr_error(curr_params->log_file, "Can't configure socket to read TTL value: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -346,7 +346,7 @@ static void *bfd_session_run(void *args)
 
     /* Make socket address reusable */
     if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &flag_enable, sizeof(flag_enable)) < 0) {
-        bfd_pr_error(curr_params->log_file, "Can't configure socket address to be reused.\n");
+        bfd_pr_error(curr_params->log_file, "Can't configure socket address to be reused: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
         pthread_exit(NULL);
@@ -360,7 +360,7 @@ static void *bfd_session_run(void *args)
         sav6.sin6_port = htons(BFD_CTRL_PORT);
 
         if (bind(sockfd, (struct sockaddr *)&sav6, sizeof(sav6)) == -1) {
-            bfd_pr_error(curr_params->log_file, "Cannot bind socket.\n");
+            bfd_pr_error(curr_params->log_file, "Cannot bind socket: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -373,7 +373,7 @@ static void *bfd_session_run(void *args)
         sav4.sin_port = htons(BFD_CTRL_PORT);
 
         if (bind(sockfd, (struct sockaddr *)&sav4, sizeof(sav4)) == -1) {
-            bfd_pr_error(curr_params->log_file, "Cannot bind socket.\n");
+            bfd_pr_error(curr_params->log_file, "Cannot bind socket: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -396,15 +396,15 @@ static void *bfd_session_run(void *args)
             l = libnet_init(
                 LIBNET_RAW6,                                /* injection type */
                 NULL,                                       /* network interface */
-                libnet_errbuf);                             /* error buffer */
+                errbuf);                                    /* error buffer */
         } else
             l = libnet_init(
                 LIBNET_RAW6,                                /* injection type */
                 if_name,                                    /* network interface */
-                libnet_errbuf);                             /* error buffer */
+                errbuf);                                    /* error buffer */
 
         if (l == NULL) {
-            bfd_pr_error(curr_params->log_file, "libnet_init() failed: %s\n", libnet_errbuf);
+            bfd_pr_error(curr_params->log_file, "libnet_init() failed: %s\n", errbuf);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -419,15 +419,15 @@ static void *bfd_session_run(void *args)
             l = libnet_init(
                 LIBNET_RAW4,                                /* injection type */
                 NULL,                                       /* network interface */
-                libnet_errbuf);                             /* error buffer */
+                errbuf);                                    /* error buffer */
         } else
             l = libnet_init(
                 LIBNET_RAW4,                                /* injection type */
                 if_name,                                    /* network interface */
-                libnet_errbuf);                             /* error buffer */
+                errbuf);                                    /* error buffer */
 
         if (l == NULL) {
-            bfd_pr_error(curr_params->log_file, "libnet_init() failed: %s\n", libnet_errbuf);
+            bfd_pr_error(curr_params->log_file, "libnet_init() failed: %s\n", errbuf);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -556,7 +556,7 @@ static void *bfd_session_run(void *args)
 
     /* Create TX timer */
     if (timer_create(CLOCK_MONOTONIC, &tx_sev, &(tx_timer.timer_id)) == -1) {
-        bfd_pr_error(curr_params->log_file, "Cannot create TX timer.\n");
+        bfd_pr_error(curr_params->log_file, "Cannot create TX timer: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
         pthread_exit(NULL);
@@ -1054,7 +1054,7 @@ static int bfd_update_timer(int interval_us, struct itimerspec *ts, struct bfd_t
     ts->it_value.tv_nsec = interval_us % 1000000 * 1000;
 
     if (timer_settime(timer_data->timer_id, 0, ts, NULL) == -1) {
-        bfd_pr_error(NULL, "Cannot update timer.\n");
+        bfd_pr_error(NULL, "Cannot update timer: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
         return EXIT_FAILURE;
     }
 
@@ -1127,7 +1127,7 @@ static int is_ip_live(char *ip_addr, bool is_ipv6, char *if_name)
 
     /* Get a list of network interfaces on the system */
     if (getifaddrs(&addrs) == -1) {
-        bfd_pr_error(NULL, "Cannot get list of network interfaces.\n");
+        bfd_pr_error(NULL, "Cannot get list of network interfaces: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
         return false;
     }
 
