@@ -32,7 +32,6 @@ extern pthread_rwlock_t read_lock;
 extern pthread_rwlock_t write_lock;
 
 /* Per thread variables */
-static __thread libnet_t *l;                                        /* libnet context */
 static __thread char errbuf[LIBNET_ERRBUF_SIZE];                    /* error buffer */
 static __thread uint32_t src_ipv4;                                  /* Local IPv4 in binary form */
 static __thread uint32_t dst_ipv4;                                  /* Remote IPv4 in binary form */
@@ -40,7 +39,6 @@ static __thread struct libnet_in6_addr dst_ipv6;                    /* Remote IP
 static __thread struct libnet_in6_addr src_ipv6;                    /* Local IPv6 in binary form */
 static __thread struct bfd_ctrl_packet pkt;                         /* BFD control packet that we send */
 static __thread libnet_ptag_t udp_tag = 0, ip_tag = 0;              /* libnet tags */
-static __thread int sockfd;                                         /* UDP socket file descriptor */
 static __thread struct sockaddr_in sav4;                            /* IPv4 socket address */
 static __thread struct sockaddr_in6 sav6;                           /* IPv6 socket address */
 static __thread int ret;                                            /* Number of received bytes on socket */
@@ -141,8 +139,8 @@ static void *bfd_session_run(void *args)
     tx_timer.is_created = false;
 
     /* Initialize other session data */
-    curr_session->l = NULL;
-    curr_session->sockfd = 0;
+    curr_session->l_tx = NULL;
+    curr_session->rx_sockfd = 0;
 
     /*
      * Define some callback return codes here to cover cases that we're interested in (can be adjusted later if needed):
@@ -308,35 +306,31 @@ static void *bfd_session_run(void *args)
 
     /* Create an UDP socket */
     if (curr_params->is_ipv6 == true) {
-        if ((sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+        if ((curr_session->rx_sockfd = socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
+            bfd_pr_error(curr_params->log_file, "Cannot create UDP socket: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
+        }
+    } else {
+        if ((curr_session->rx_sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
             bfd_pr_error(curr_params->log_file, "Cannot create UDP socket: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
     }
-    else {
-        if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
-            bfd_pr_error(curr_params->log_file, "Cannot create UDP socket: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
-            current_thread->ret = -1;
-            sem_post(&current_thread->sem);
-            pthread_exit(NULL);
-        }
-    }
-
-    /* Store the sockfd so we can close it when we're done */
-    curr_session->sockfd = sockfd;
 
     /* Configure socket to read TTL/Hop Limit value */
     if (curr_params->is_ipv6 == true) {
-        if (setsockopt(sockfd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &flag_enable, sizeof(flag_enable)) < 0) {
+        if (setsockopt(curr_session->rx_sockfd, IPPROTO_IPV6, IPV6_RECVHOPLIMIT, &flag_enable, sizeof(flag_enable)) < 0) {
             bfd_pr_error(curr_params->log_file, "Can't configure socket to read Hop Limit value: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
     } else {
-        if (setsockopt(sockfd, IPPROTO_IP, IP_RECVTTL, &flag_enable, sizeof(flag_enable)) < 0) {
+        if (setsockopt(curr_session->rx_sockfd, IPPROTO_IP, IP_RECVTTL, &flag_enable, sizeof(flag_enable)) < 0) {
             bfd_pr_error(curr_params->log_file, "Can't configure socket to read TTL value: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
@@ -345,7 +339,7 @@ static void *bfd_session_run(void *args)
     }
 
     /* Make socket address reusable */
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &flag_enable, sizeof(flag_enable)) < 0) {
+    if (setsockopt(curr_session->rx_sockfd, SOL_SOCKET, SO_REUSEADDR, &flag_enable, sizeof(flag_enable)) < 0) {
         bfd_pr_error(curr_params->log_file, "Can't configure socket address to be reused: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
@@ -359,20 +353,19 @@ static void *bfd_session_run(void *args)
         inet_pton(sav6.sin6_family, curr_params->src_ip, &(sav6.sin6_addr));
         sav6.sin6_port = htons(BFD_CTRL_PORT);
 
-        if (bind(sockfd, (struct sockaddr *)&sav6, sizeof(sav6)) == -1) {
+        if (bind(curr_session->rx_sockfd, (struct sockaddr *)&sav6, sizeof(sav6)) == -1) {
             bfd_pr_error(curr_params->log_file, "Cannot bind socket: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
-    }
-    else {
+    } else {
         memset(&sav4, 0, sizeof(struct sockaddr_in));
         sav4.sin_family = AF_INET;
         inet_pton(sav4.sin_family, curr_params->src_ip, &(sav4.sin_addr));
         sav4.sin_port = htons(BFD_CTRL_PORT);
 
-        if (bind(sockfd, (struct sockaddr *)&sav4, sizeof(sav4)) == -1) {
+        if (bind(curr_session->rx_sockfd, (struct sockaddr *)&sav4, sizeof(sav4)) == -1) {
             bfd_pr_error(curr_params->log_file, "Cannot bind socket: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
@@ -393,52 +386,48 @@ static void *bfd_session_run(void *args)
     if (curr_params->is_ipv6 == true) {
         if (is_ip_live(curr_params->dst_ip, true, NULL) != -1) {
             bfd_pr_debug(curr_params->log_file, "Destination IP is on same machine/namespace.\n");
-            l = libnet_init(
+            curr_session->l_tx = libnet_init(
                 LIBNET_RAW6,                                /* injection type */
                 NULL,                                       /* network interface */
                 errbuf);                                    /* error buffer */
         } else
-            l = libnet_init(
+            curr_session->l_tx = libnet_init(
                 LIBNET_RAW6,                                /* injection type */
                 if_name,                                    /* network interface */
                 errbuf);                                    /* error buffer */
 
-        if (l == NULL) {
+        if (curr_session->l_tx == NULL) {
             bfd_pr_error(curr_params->log_file, "libnet_init() failed: %s\n", errbuf);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
         /* Convert IP strings to network format */
-        src_ipv6 = libnet_name2addr6(l, curr_params->src_ip, LIBNET_DONT_RESOLVE);
-        dst_ipv6 = libnet_name2addr6(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE);
-    }
-    else {
+        src_ipv6 = libnet_name2addr6(curr_session->l_tx, curr_params->src_ip, LIBNET_DONT_RESOLVE);
+        dst_ipv6 = libnet_name2addr6(curr_session->l_tx, curr_params->dst_ip, LIBNET_DONT_RESOLVE);
+    } else {
         if (is_ip_live(curr_params->dst_ip, false, NULL) != -1) {
             bfd_pr_debug(curr_params->log_file, "Destination IP is on same machine/namespace.\n");
-            l = libnet_init(
+            curr_session->l_tx = libnet_init(
                 LIBNET_RAW4,                                /* injection type */
                 NULL,                                       /* network interface */
                 errbuf);                                    /* error buffer */
         } else
-            l = libnet_init(
+            curr_session->l_tx = libnet_init(
                 LIBNET_RAW4,                                /* injection type */
                 if_name,                                    /* network interface */
                 errbuf);                                    /* error buffer */
 
-        if (l == NULL) {
+        if (curr_session->l_tx == NULL) {
             bfd_pr_error(curr_params->log_file, "libnet_init() failed: %s\n", errbuf);
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
         /* Convert IP strings to network format */
-        src_ipv4 = libnet_name2addr4(l, curr_params->src_ip, LIBNET_DONT_RESOLVE);
-        dst_ipv4 = libnet_name2addr4(l, curr_params->dst_ip, LIBNET_DONT_RESOLVE);
+        src_ipv4 = libnet_name2addr4(curr_session->l_tx, curr_params->src_ip, LIBNET_DONT_RESOLVE);
+        dst_ipv4 = libnet_name2addr4(curr_session->l_tx, curr_params->dst_ip, LIBNET_DONT_RESOLVE);
     }
-
-    /* Copy libnet pointer */
-    curr_session->l = l;
 
     /* Seed random generator used for local discriminator */
     srandom((uint64_t)curr_params);
@@ -486,11 +475,11 @@ static void *bfd_session_run(void *args)
         0,                                                      /* Checksum */
         (uint8_t *)&pkt,                                        /* Payload */
         BFD_PKG_MIN_SIZE,                                       /* Payload size */
-        l,                                                      /* libnet handle */
+        curr_session->l_tx,                                     /* libnet handle */
         udp_tag);                                               /* libnet tag */
 
     if (udp_tag == -1) {
-        bfd_pr_error(curr_params->log_file, "Can't build UDP header: %s\n", libnet_geterror(l));
+        bfd_pr_error(curr_params->log_file, "Can't build UDP header: %s\n", libnet_geterror(curr_session->l_tx));
         current_thread->ret = -1;
         sem_post(&current_thread->sem);
         pthread_exit(NULL);
@@ -508,17 +497,16 @@ static void *bfd_session_run(void *args)
             dst_ipv6,                                           /* Destination IP address */
             NULL,                                               /* Payload (filled at upper layer) */
             0,                                                  /* Payload size */
-            l,                                                  /* libnet handle */
+            curr_session->l_tx,                                 /* libnet handle */
             ip_tag);                                            /* libnet tag */
 
         if (ip_tag == -1) {
-            bfd_pr_error(curr_params->log_file, "Can't build IP header: %s\n", libnet_geterror(l));
+            bfd_pr_error(curr_params->log_file, "Can't build IP header: %s\n", libnet_geterror(curr_session->l_tx));
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
         }
-    }
-    else {
+    } else {
         ip_tag = libnet_build_ipv4(
             LIBNET_IPV4_H + BFD_PKG_MIN_SIZE + LIBNET_UDP_H,    /* Packet length */
             (curr_session->dscp << 2) & 0xFC,                   /* DSCP */
@@ -531,11 +519,11 @@ static void *bfd_session_run(void *args)
             dst_ipv4,                                           /* Destination IP address */
             NULL,                                               /* Payload (filled at upper layer) */
             0,                                                  /* Payload size */
-            l,                                                  /* libnet handle */
+            curr_session->l_tx,                                 /* libnet handle */
             ip_tag);                                            /* libnet tag */
 
         if (ip_tag == -1) {
-            bfd_pr_error(curr_params->log_file, "Can't build IP header: %s\n", libnet_geterror(l));
+            bfd_pr_error(curr_params->log_file, "Can't build IP header: %s\n", libnet_geterror(curr_session->l_tx));
             current_thread->ret = -1;
             sem_post(&current_thread->sem);
             pthread_exit(NULL);
@@ -612,11 +600,11 @@ static void *bfd_session_run(void *args)
                     dst_ipv6,                                           /* Destination IP address */
                     NULL,                                               /* Payload (filled at upper layer) */
                     0,                                                  /* Payload size */
-                    l,                                                  /* libnet handle */
+                    curr_session->l_tx,                                 /* libnet handle */
                     ip_tag);                                            /* libnet tag */
 
                     if (ip_tag == -1) {
-                        bfd_pr_error(curr_params->log_file, "Can't build IP header: %s\n", libnet_geterror(l));
+                        bfd_pr_error(curr_params->log_file, "Can't build IP header: %s\n", libnet_geterror(curr_session->l_tx));
                         continue;
                     }
             } else {
@@ -632,18 +620,18 @@ static void *bfd_session_run(void *args)
                     dst_ipv4,                                           /* Destination IP address */
                     NULL,                                               /* Payload (filled at upper layer) */
                     0,                                                  /* Payload size */
-                    l,                                                  /* libnet handle */
+                    curr_session->l_tx,                                 /* libnet handle */
                     ip_tag);                                            /* libnet tag */
 
                 if (ip_tag == -1) {
-                    bfd_pr_error(curr_params->log_file, "Can't build IP header: %s\n", libnet_geterror(l));
+                    bfd_pr_error(curr_params->log_file, "Can't build IP header: %s\n", libnet_geterror(curr_session->l_tx));
                     continue;
                 }
             }
         }
 
         /* Check our socket for data */
-        ret = recvmsg_ppoll(sockfd, &recv_hdr, curr_session->detection_time);
+        ret = recvmsg_ppoll(curr_session->rx_sockfd, &recv_hdr, curr_session->detection_time);
 
         /* No data available */
         if (ret == -2) {
@@ -760,8 +748,7 @@ static void *bfd_session_run(void *args)
              */
             if ((curr_params->des_min_tx_interval > curr_session->des_min_tx_interval) && curr_session->local_state == BFD_STATE_UP) {
                 curr_session->final_op_tx = max(curr_params->des_min_tx_interval, curr_session->remote_min_rx_interval);
-            }
-            else if ((curr_params->des_min_tx_interval < curr_session->des_min_tx_interval) && curr_session->local_state == BFD_STATE_UP)
+            } else if ((curr_params->des_min_tx_interval < curr_session->des_min_tx_interval) && curr_session->local_state == BFD_STATE_UP)
                 curr_session->des_min_tx_interval = curr_params->des_min_tx_interval;
             curr_session->op_tx = max(curr_session->des_min_tx_interval, curr_session->remote_min_rx_interval);
 
@@ -772,8 +759,7 @@ static void *bfd_session_run(void *args)
              */
             if ((curr_params->req_min_rx_interval < curr_session->req_min_rx_interval) && curr_session->local_state == BFD_STATE_UP) {
                 curr_session->final_detection_time = curr_session->remote_detect_mult * max(curr_params->req_min_rx_interval, curr_session->remote_des_min_tx_interval);
-            }
-            else if ((curr_params->req_min_rx_interval > curr_session->req_min_rx_interval) && curr_session->local_state == BFD_STATE_UP)
+            } else if ((curr_params->req_min_rx_interval > curr_session->req_min_rx_interval) && curr_session->local_state == BFD_STATE_UP)
                 curr_session->req_min_rx_interval = curr_params->req_min_rx_interval;
             curr_session->detection_time = curr_session->remote_detect_mult * max(curr_session->req_min_rx_interval, curr_session->remote_des_min_tx_interval);
 
@@ -794,8 +780,7 @@ static void *bfd_session_run(void *args)
                         curr_params->callback(&callback_status);
                     }
                 }
-            }
-            else {
+            } else {
                 if (curr_session->local_state == BFD_STATE_DOWN) {
                     if (curr_session->remote_state == BFD_STATE_DOWN) {
                         curr_session->local_state = BFD_STATE_INIT;
@@ -808,8 +793,7 @@ static void *bfd_session_run(void *args)
                             callback_status.cb_ret = BFD_CB_SESSION_INIT;
                             curr_params->callback(&callback_status);
                         }
-                    }
-                    else if (curr_session->remote_state == BFD_STATE_INIT) {
+                    } else if (curr_session->remote_state == BFD_STATE_INIT) {
                         curr_session->local_state = BFD_STATE_UP;
                         curr_session->local_diag = BFD_DIAG_NODIAG;  // should this be updated?
                         if (curr_params->callback != NULL) {
@@ -817,8 +801,7 @@ static void *bfd_session_run(void *args)
                             curr_params->callback(&callback_status);
                         }
                     }
-                }
-                else if (curr_session->local_state == BFD_STATE_INIT) {
+                } else if (curr_session->local_state == BFD_STATE_INIT) {
                         if (curr_session->remote_state == BFD_STATE_INIT || curr_session->remote_state == BFD_STATE_UP) {
                             curr_session->local_state = BFD_STATE_UP;
                             curr_session->local_diag = BFD_DIAG_NODIAG; // should this be updated?
@@ -865,11 +848,11 @@ static void *bfd_session_run(void *args)
                     curr_session->req_min_rx_interval, &pkt);
 
                 /* Update UDP header */
-                bfd_build_udp(&pkt, curr_session->src_port, &udp_tag, l);
+                bfd_build_udp(&pkt, curr_session->src_port, &udp_tag, curr_session->l_tx);
 
                 /* Send BFD packet on wire */
-                if (libnet_write(l) == -1) {
-                    bfd_pr_error(curr_params->log_file, "Write error: %s\n", libnet_geterror(l));
+                if (libnet_write(curr_session->l_tx) == -1) {
+                    bfd_pr_error(curr_params->log_file, "Write error: %s\n", libnet_geterror(curr_session->l_tx));
                     continue;
                 }
             }
@@ -943,7 +926,7 @@ static void tx_timeout_handler(union sigval sv)
     uint32_t tx_jitter;
     struct bfd_ctrl_packet *pkt = curr_session->pkt;
     libnet_ptag_t *udp_tag = curr_session->udp_tag;
-    libnet_t *l = curr_session->l;
+    libnet_t *l = curr_session->l_tx;
     struct itimerspec *tx_ts = curr_session->session_timer->tx_ts;
 
     if (curr_session->poll_in_progress == true)
@@ -985,12 +968,12 @@ static void thread_cleanup(void *args)
     }
 
     /* Clean up libnet context */
-    if (curr_session->l != NULL)
-        libnet_destroy(curr_session->l);
+    if (curr_session->l_tx != NULL)
+        libnet_destroy(curr_session->l_tx);
 
     /* Cleanup socket */
-    if (curr_session->sockfd != 0)
-        close(curr_session->sockfd);
+    if (curr_session->rx_sockfd != 0)
+        close(curr_session->rx_sockfd);
 
     /*
      * If a session is not successfully configured, we don't call pthread_join on it,
@@ -1072,8 +1055,7 @@ static bool is_ip_valid(char *ip, bool is_ipv6)
             return true;
         else if (ret == 0)
             return false;
-    }
-    else {
+    } else {
         struct sockaddr_in sa;
 
         int ret = inet_pton(AF_INET, ip, &(sa.sin_addr));

@@ -92,8 +92,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
                 if (session->session_params->callback != NULL) {
                     session->session_params->callback(sess_cb_status);
                 }
-            }
-            else
+            } else
                 bfd_pr_error(session->session_params->log_file, "Session: %ld is already in ADMIN_DOWN, skipping.\n", session_id);
 
             pthread_rwlock_unlock(&write_lock);
@@ -115,8 +114,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
                 if (session->session_params->callback != NULL) {
                     session->session_params->callback(sess_cb_status);
                 }
-            }
-            else
+            } else
                 bfd_pr_error(session->session_params->log_file, "Session: %ld was not in ADMIN_DOWN, skipping.\n", session_id);
 
             pthread_rwlock_unlock(&write_lock);

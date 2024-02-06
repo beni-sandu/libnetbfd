@@ -107,7 +107,7 @@ struct bfd_session {
     bool remote_final;
     bool poll_in_progress;
     bool remote_poll_in_progress;
-    int sockfd;
+    int rx_sockfd;
     uint16_t src_port;
     uint16_t dst_port;
     bfd_session_id session_id;
@@ -120,7 +120,7 @@ struct bfd_session {
     bool is_configured;
     struct bfd_ctrl_packet *pkt;
     libnet_ptag_t *udp_tag;
-    libnet_t *l;
+    libnet_t *l_tx;
 };
 
 /* Function prototypes */
