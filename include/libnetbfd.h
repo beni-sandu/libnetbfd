@@ -25,7 +25,8 @@ extern "C" {
 #define bfd_pr_debug(file, ...) \
     ( {printf("[DEBUG] "__VA_ARGS__) ; bfd_pr_log(file, "[DEBUG] "__VA_ARGS__);} )
 #else
-#define bfd_pr_debug(...)
+#define bfd_pr_debug(...) \
+    ( {do {} while(0);} )
 #endif
 
 #define bfd_pr_info(file, ...) \

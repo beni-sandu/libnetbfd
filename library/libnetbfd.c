@@ -93,7 +93,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
                     session->session_params->callback(sess_cb_status);
                 }
             } else
-                bfd_pr_error(session->session_params->log_file, "Session: %ld is already in ADMIN_DOWN, skipping.\n", session_id);
+                bfd_pr_debug(session->session_params->log_file, "Session: %ld is already in ADMIN_DOWN, skipping.\n", session_id);
 
             pthread_rwlock_unlock(&write_lock);
 
@@ -115,7 +115,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
                     session->session_params->callback(sess_cb_status);
                 }
             } else
-                bfd_pr_error(session->session_params->log_file, "Session: %ld was not in ADMIN_DOWN, skipping.\n", session_id);
+                bfd_pr_debug(session->session_params->log_file, "Session: %ld was not in ADMIN_DOWN, skipping.\n", session_id);
 
             pthread_rwlock_unlock(&write_lock);
 
@@ -124,7 +124,7 @@ void bfd_session_modify(bfd_session_id session_id, enum bfd_modify_cmd cmd,
         case SESSION_CHANGE_BFD_INTERVALS:
 
             if (des_min_tx_interval == 0 && req_min_rx_interval == 0) {
-                bfd_pr_error(session->session_params->log_file, "Both parameters are 0, nothing to be done.\n");
+                bfd_pr_debug(session->session_params->log_file, "Both parameters are 0, nothing to be done.\n");
                 pthread_rwlock_unlock(&write_lock);
                 return;
             }
