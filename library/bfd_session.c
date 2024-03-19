@@ -121,7 +121,7 @@ static void *bfd_session_run(void *args)
     /* Setup buffer and header structs for received packets */
     uint8_t recv_buf[BFD_PKG_MIN_SIZE];
     struct iovec recv_iov[1] = { { recv_buf, sizeof(recv_buf) } };
-    uint8_t recv_ctrldata[CMSG_SPACE(sizeof(uint8_t))];
+    uint8_t recv_ctrldata[1024];
     struct msghdr recv_hdr = {
         .msg_name = NULL,
         .msg_namelen = 0,
@@ -130,6 +130,8 @@ static void *bfd_session_run(void *args)
         .msg_control = recv_ctrldata,
         .msg_controllen = sizeof(recv_ctrldata)
     };
+
+    /* Other variables */
     int flag_enable = 1;
     int ip_ret = -1;
 
@@ -346,11 +348,28 @@ static void *bfd_session_run(void *args)
         pthread_exit(NULL);
     }
 
+    /* Enable IPv6 packet info */
+    if (curr_params->is_ipv6 == true) {
+        if (setsockopt(curr_session->rx_sockfd, IPPROTO_IPV6, IPV6_RECVPKTINFO, &flag_enable, sizeof(flag_enable)) < 0) {
+            bfd_pr_error(curr_params->log_file, "Can't configure socket to enable packet info: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
+        }
+
+        if (setsockopt(curr_session->rx_sockfd, IPPROTO_IPV6, IPV6_V6ONLY, &flag_enable, sizeof(flag_enable)) < 0) {
+            bfd_pr_error(curr_params->log_file, "Can't configure socket to enable IPv6 only packets: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
+            current_thread->ret = -1;
+            sem_post(&current_thread->sem);
+            pthread_exit(NULL);
+        }
+    }
+
     /* Bind the socket */
     if (curr_params->is_ipv6 == true) {
         memset(&sav6, 0, sizeof(struct sockaddr_in6));
         sav6.sin6_family = AF_INET6;
-        inet_pton(sav6.sin6_family, curr_params->src_ip, &(sav6.sin6_addr));
+        sav6.sin6_addr = in6addr_any;
         sav6.sin6_port = htons(BFD_CTRL_PORT);
 
         if (bind(curr_session->rx_sockfd, (struct sockaddr *)&sav6, sizeof(sav6)) == -1) {
@@ -653,6 +672,57 @@ static void *bfd_session_run(void *args)
 
         /* We have some data, get it and process it */
         if (ret > 0) {
+
+            /*
+             * For IPv6 sessions, check destination address of incoming packets and
+             * make sure it matches the interface that is used for the current session.
+             */
+            if (curr_params->is_ipv6) {
+                struct in6_pktinfo in6_pktinfo;
+                struct cmsghdr *cmsg;
+
+                /* Get the destination IP address from ancilarry data */
+                for (cmsg = CMSG_FIRSTHDR(&recv_hdr); cmsg != NULL; cmsg = CMSG_NXTHDR(&recv_hdr, cmsg)) {
+                    if (cmsg->cmsg_level == IPPROTO_IPV6 && cmsg->cmsg_type == IPV6_PKTINFO)
+                        in6_pktinfo = *(struct in6_pktinfo *)CMSG_DATA(cmsg);
+                }
+
+                /* Get a list of network interfaces on the system */
+                struct ifaddrs *addrs, *ifp;
+                if (getifaddrs(&addrs) == -1) {
+                    bfd_pr_error(curr_params->log_file, "Cannot get list of network interfaces: %s.\n", strerror_r(errno, errbuf, LIBNET_ERRBUF_SIZE));
+                    continue;
+                }
+
+                /* Walk through the list and try to find the IP */
+                ifp = addrs;
+                bool dest_ip_match = false;
+
+                while (ifp != NULL) {
+                    if (ifp->ifa_addr && ifp->ifa_addr->sa_family == AF_INET6) {
+                        struct sockaddr_in6 *sa_v6 = (struct sockaddr_in6 *)ifp->ifa_addr;
+
+                        /* We found our IP */
+                        if (memcmp(&(sa_v6->sin6_addr.__in6_u), &(in6_pktinfo.ipi6_addr.__in6_u), sizeof(sa_v6->sin6_addr.__in6_u)) == 0) {
+                            
+                            /* Check if it is assigned on our interface */
+                            if (strncmp(if_name, ifp->ifa_name, IFNAMSIZ) == 0) {
+                                dest_ip_match = true;
+                                freeifaddrs(addrs);
+                                break;
+                            }
+                        }
+                    }
+                    ifp = ifp->ifa_next;
+                }
+
+                /* If we don't get a match, invalidate the packet */
+                if (dest_ip_match == false) {
+                    bfd_pr_debug(curr_params->log_file, "Destination IP of packet not assigned on used interface.\n");
+                    freeifaddrs(addrs);
+                    continue;
+                }
+            }
 
             /* If TTL/Hop limit is not 255, packet MUST be discarded (section 5 in RFC5881) */
             if (get_ttl_or_hopl(&recv_hdr, curr_params->is_ipv6) != 255) {
