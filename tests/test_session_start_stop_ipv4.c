@@ -1,4 +1,4 @@
-#include <libnetbfd/libnetbfd.h>
+#include "../include/libnetbfd.h"
 
 int main(void)
 {

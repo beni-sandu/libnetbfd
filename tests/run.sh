@@ -14,6 +14,8 @@ ip link set dev veth2 up
 # Give some time for the interfaces to come up
 sleep 1
 
+export LD_LIBRARY_PATH="../build"
+
 # Run all tests from directory
 tests=$(find * -type f -name 'test_*')
 
